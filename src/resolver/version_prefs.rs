@@ -196,48 +196,35 @@ impl PublishAgePolicy {
         now: Option<jiff::Timestamp>,
         gctx: &GlobalContext,
     ) -> CargoResult<Option<Self>> {
-        let parse = |key: &str, config: Option<String>| -> CargoResult<MinPublishAge> {
-            let Some(config) = config else {
-                return Ok(MinPublishAge::Unset);
-            };
-            if config == "0" {
-                return Ok(MinPublishAge::None);
-            }
-            let duration = parse_time_span(&config)
-                .map_err(|e| anyhow::format_err!("invalid value for `{key}`: {e}"))?;
-            Ok(MinPublishAge::Age(duration, config))
-        };
+        let (global, per_registry) = read_min_publish_age(gctx)?;
+        let invocation_time = now.unwrap_or_else(|| gctx.invocation_time());
+        Ok(Self::from_parts(invocation_time, global, per_registry))
+    }
 
-        let registry = gctx.get::<Option<GlobalRegistryConfig>>(["registry"])?;
-        let global = parse(
-            "registry.global-min-publish-age",
-            registry.and_then(|r| r.global_min_publish_age),
-        )?;
-        let mut per_registry = HashMap::default();
-        if let Some(registries) =
-            gctx.get::<Option<HashMap<String, RegistryConfig>>>(["registries"])?
-        {
-            for (name, config) in registries {
-                let limit = parse(
-                    &format!("registries.{name}.min-publish-age"),
-                    config.min_publish_age,
-                )?;
-                if limit.is_set() {
-                    per_registry.insert(name, limit);
-                }
-            }
+    /// Builds the policy from already-parsed thresholds.
+    ///
+    /// * `invocation_time` is the reference "now" that ages are measured against.
+    /// * `global` is `registry.global-min-publish-age`.
+    /// * `per_registry` maps registry names to `registries.<name>.min-publish-age`.
+    ///
+    /// Returns `None` when no threshold is configured at all.
+    pub fn from_parts(
+        invocation_time: jiff::Timestamp,
+        global: MinPublishAge,
+        per_registry: HashMap<String, MinPublishAge>,
+    ) -> Option<Self> {
+        let per_registry: HashMap<_, _> = per_registry
+            .into_iter()
+            .filter(|(_, limit)| limit.is_set())
+            .collect();
+        if !global.is_set() && per_registry.is_empty() {
+            return None;
         }
-
-        let nothing_configured = !global.is_set() && per_registry.is_empty();
-        if nothing_configured {
-            return Ok(None);
-        }
-
-        Ok(Some(Self {
-            invocation_time: now.unwrap_or_else(|| gctx.invocation_time()),
+        Some(Self {
+            invocation_time,
             global,
             per_registry,
-        }))
+        })
     }
 
     /// Returns the version's publish-age if it is too new for its registry.
@@ -309,9 +296,44 @@ impl PublishAgePolicy {
     }
 }
 
+/// Reads `registry.global-min-publish-age` and every
+/// `registries.<name>.min-publish-age` from configuration.
+fn read_min_publish_age(
+    gctx: &GlobalContext,
+) -> CargoResult<(MinPublishAge, HashMap<String, MinPublishAge>)> {
+    let parse = |key: &str, config: Option<String>| -> CargoResult<MinPublishAge> {
+        let Some(config) = config else {
+            return Ok(MinPublishAge::Unset);
+        };
+        if config == "0" {
+            return Ok(MinPublishAge::None);
+        }
+        let duration = parse_time_span(&config)
+            .map_err(|e| anyhow::format_err!("invalid value for `{key}`: {e}"))?;
+        Ok(MinPublishAge::Age(duration, config))
+    };
+
+    let registry = gctx.get::<Option<GlobalRegistryConfig>>(["registry"])?;
+    let global = parse(
+        "registry.global-min-publish-age",
+        registry.and_then(|r| r.global_min_publish_age),
+    )?;
+    let mut per_registry = HashMap::default();
+    if let Some(registries) = gctx.get::<Option<HashMap<String, RegistryConfig>>>(["registries"])? {
+        for (name, config) in registries {
+            let limit = parse(
+                &format!("registries.{name}.min-publish-age"),
+                config.min_publish_age,
+            )?;
+            per_registry.insert(name, limit);
+        }
+    }
+    Ok((global, per_registry))
+}
+
 /// A configured `min-publish-age` value for one scope.
 #[derive(Debug, Clone)]
-enum MinPublishAge {
+pub enum MinPublishAge {
     /// Key unset.
     Unset,
     /// No min-publish-age limit at all.
@@ -322,7 +344,7 @@ enum MinPublishAge {
 
 impl MinPublishAge {
     /// Whether a value was configured for this scope.
-    fn is_set(&self) -> bool {
+    pub fn is_set(&self) -> bool {
         !matches!(self, MinPublishAge::Unset)
     }
 }
