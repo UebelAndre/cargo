@@ -20,8 +20,6 @@ pub use cargo_resolver::{
     ResolveBehavior, ResolveError, ResolveOpts, ResolveVersion, ResolverHost, VersionOrdering,
     VersionPreferences,
 };
-// Kept for `resolver-tests` until it depends on `cargo-resolver` directly.
-pub use cargo_resolver::resolve as resolve_with_host;
 
 pub use self::features::{CliFeatures, ForceAllTargets, HasDevUnits};
 pub use self::global_context_host::GlobalContextHost;

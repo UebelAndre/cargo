@@ -2,11 +2,11 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::Write;
 
-use cargo::util::VersionReqMatchMode;
-use cargo::util::interning::{INTERNED_DEFAULT, InternedString};
-use cargo::workspace::dependency::DepKind;
-use cargo::workspace::{Dependency, FeatureMap, FeatureValue, PackageId, Summary};
 use cargo_platform::Platform;
+use cargo_resolver::DepKind;
+use cargo_resolver::VersionReqMatchMode;
+use cargo_resolver::interning::{INTERNED_DEFAULT, InternedString};
+use cargo_resolver::{Dependency, FeatureMap, FeatureValue, PackageId, Summary};
 use varisat::ExtendFormula;
 
 const fn num_bits<T>() -> usize {

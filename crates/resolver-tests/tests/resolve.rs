@@ -1,5 +1,5 @@
-use cargo::workspace::Dependency;
-use cargo::workspace::dependency::DepKind;
+use cargo_resolver::DepKind;
+use cargo_resolver::Dependency;
 use snapbox::assert_data_eq;
 use snapbox::str;
 

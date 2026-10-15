@@ -14,18 +14,18 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::time::Instant;
 
-use cargo::resolver::Resolve;
-use cargo::resolver::ResolveVersion;
-use cargo::resolver::ResolverHost;
-use cargo::resolver::{self, ResolveOpts, VersionOrdering, VersionPreferences};
-use cargo::sources::IndexSummary;
-use cargo::sources::source::QueryKind;
-use cargo::util::CargoResult;
-use cargo::util::VersionReqMatchMode;
-use cargo::util::interning::InternedString;
-use cargo::workspace::SourceId;
-use cargo::workspace::dependency::DepKind;
-use cargo::workspace::{Dependency, PackageId, Registry, Summary};
+use cargo_resolver::CargoResult;
+use cargo_resolver::DepKind;
+use cargo_resolver::IndexSummary;
+use cargo_resolver::QueryKind;
+use cargo_resolver::Resolve;
+use cargo_resolver::ResolveVersion;
+use cargo_resolver::ResolverHost;
+use cargo_resolver::SourceId;
+use cargo_resolver::VersionReqMatchMode;
+use cargo_resolver::interning::InternedString;
+use cargo_resolver::{Dependency, PackageId, Registry, Summary};
+use cargo_resolver::{ResolveOpts, VersionOrdering, VersionPreferences};
 
 use crate::helpers::{ToPkgId, dep_req, dep_req_kind, pkg_dep, pkg_id};
 use crate::sat::SatResolver;
@@ -229,7 +229,7 @@ pub fn resolve_with_settings_raw(
     }
     let host = TestHost { settings, start };
 
-    let resolve = resolver::resolve_with_host(
+    let resolve = cargo_resolver::resolve(
         &[(root_summary, opts)],
         &[],
         &mut registry,

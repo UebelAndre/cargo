@@ -1,4 +1,4 @@
-use cargo::workspace::{Dependency, dependency::DepKind};
+use cargo_resolver::{DepKind, Dependency};
 
 use resolver_tests::{
     helpers::{

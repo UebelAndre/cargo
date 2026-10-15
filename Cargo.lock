@@ -3936,8 +3936,8 @@ dependencies = [
 name = "resolver-tests"
 version = "0.0.0"
 dependencies = [
- "cargo",
  "cargo-platform 0.3.3",
+ "cargo-resolver",
  "cargo-util",
  "cargo-util-schemas",
  "proptest",

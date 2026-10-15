@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::OnceLock;
 
-use cargo::util::IntoUrl;
-use cargo::workspace::dependency::DepKind;
-use cargo::workspace::{Dependency, GitReference, PackageId, SourceId, Summary};
+use cargo_resolver::DepKind;
+use cargo_resolver::IntoUrl;
+use cargo_resolver::{Dependency, GitReference, PackageId, SourceId, Summary};
 
 pub trait ToDep {
     fn to_dep(self) -> Dependency;
