@@ -4,8 +4,10 @@ use crate::compiler::layout::outer_first;
 use crate::resolver::encode::into_resolve;
 use crate::resolver::{Resolve, ResolveVersion};
 use crate::util::Filesystem;
+use crate::util::GlobalContext;
+use crate::util::data_structures::{HashMap, HashSet};
 use crate::util::errors::CargoResult;
-use crate::workspace::Workspace;
+use crate::workspace::{Dependency, Package, Patch, SourceId, Workspace};
 
 use anyhow::Context as _;
 use cargo_util_schemas::lockfile::TomlLockfile;
@@ -27,7 +29,7 @@ pub fn load_pkg_lockfile(ws: &Workspace<'_>) -> CargoResult<Option<Resolve>> {
 
     let resolve = (|| -> CargoResult<Option<Resolve>> {
         let v: TomlLockfile = toml::from_str(&s)?;
-        Ok(Some(into_resolve(v, &s, ws)?))
+        Ok(Some(decode_resolve(v, &s, ws)?))
     })()
     .with_context(|| format!("failed to parse lock file at: {}", f.path().display()))?;
     Ok(resolve)
@@ -231,7 +233,7 @@ fn are_equal_lockfiles(orig: &str, current: &str, ws: &Workspace<'_>) -> bool {
         let res: CargoResult<bool> = (|| {
             let old: TomlLockfile = toml::from_str(orig)?;
             let new: TomlLockfile = toml::from_str(current)?;
-            Ok(into_resolve(old, orig, ws)? == into_resolve(new, current, ws)?)
+            Ok(decode_resolve(old, orig, ws)? == decode_resolve(new, current, ws)?)
         })();
         if let Ok(true) = res {
             return true;
@@ -267,5 +269,120 @@ fn emit_package(dep: &toml::Table, out: &mut String) {
         out.push('\n');
     } else if dep.contains_key("replace") {
         out.push_str(&format!("replace = {}\n\n", &dep["replace"]));
+    }
+}
+
+/// Converts a parsed lockfile into a [`Resolve`] in the context of `ws`.
+///
+/// This supplies the two workspace-dependent inputs [`into_resolve`] needs:
+/// which lockfile versions this Cargo accepts, and the path dependencies the
+/// lockfile may refer to.
+fn decode_resolve(
+    lockfile: TomlLockfile,
+    original: &str,
+    ws: &Workspace<'_>,
+) -> CargoResult<Resolve> {
+    let version = lockfile_version(lockfile.version, ws.gctx())?;
+    let path_deps = build_path_deps(ws)?;
+    into_resolve(lockfile, original, version, &path_deps)
+}
+
+/// Maps the version a lockfile declares to a [`ResolveVersion`], rejecting
+/// versions this Cargo does not understand or that are still unstable.
+fn lockfile_version(declared: Option<u32>, gctx: &GlobalContext) -> CargoResult<ResolveVersion> {
+    Ok(match declared {
+        Some(n @ 5) if gctx.nightly_features_allowed => {
+            if gctx.cli_unstable().next_lockfile_bump {
+                ResolveVersion::V5
+            } else {
+                anyhow::bail!("lock file version `{n}` requires `-Znext-lockfile-bump`");
+            }
+        }
+        Some(4) => ResolveVersion::V4,
+        Some(3) => ResolveVersion::V3,
+        Some(n) => anyhow::bail!(
+            "lock file version `{}` was found, but this version of Cargo \
+             does not understand this lock file, perhaps Cargo needs \
+             to be updated?",
+            n,
+        ),
+        // Historically Cargo did not have a version indicator in lock
+        // files, so this could either be the V1 or V2 encoding. We assume
+        // an older format is being parsed until we see so otherwise.
+        None => ResolveVersion::V1,
+    })
+}
+
+fn build_path_deps(
+    ws: &Workspace<'_>,
+) -> CargoResult<HashMap<String, HashMap<semver::Version, SourceId>>> {
+    // If a crate is **not** a path source, then we're probably in a situation
+    // such as `cargo install` with a lock file from a remote dependency. In
+    // that case we don't need to fixup any path dependencies (as they're not
+    // actually path dependencies any more), so we ignore them.
+    let members = ws
+        .members()
+        .filter(|p| p.package_id().source_id().is_path())
+        .collect::<Vec<_>>();
+
+    let mut ret: HashMap<String, HashMap<semver::Version, SourceId>> = HashMap::default();
+    let mut visited = HashSet::default();
+    for member in members.iter() {
+        ret.entry(member.package_id().name().to_string())
+            .or_insert_with(HashMap::default)
+            .insert(
+                member.package_id().version().clone(),
+                member.package_id().source_id(),
+            );
+        visited.insert(member.package_id().source_id());
+    }
+    for member in members.iter() {
+        build_pkg(member, ws, &mut ret, &mut visited);
+    }
+    for deps in ws.root_patch()?.values() {
+        for Patch { dep, loc: _ } in deps {
+            build_dep(dep, ws, &mut ret, &mut visited);
+        }
+    }
+    for (_, dep) in ws.root_replace() {
+        build_dep(dep, ws, &mut ret, &mut visited);
+    }
+
+    return Ok(ret);
+
+    fn build_pkg(
+        pkg: &Package,
+        ws: &Workspace<'_>,
+        ret: &mut HashMap<String, HashMap<semver::Version, SourceId>>,
+        visited: &mut HashSet<SourceId>,
+    ) {
+        for dep in pkg.dependencies() {
+            build_dep(dep, ws, ret, visited);
+        }
+    }
+
+    fn build_dep(
+        dep: &Dependency,
+        ws: &Workspace<'_>,
+        ret: &mut HashMap<String, HashMap<semver::Version, SourceId>>,
+        visited: &mut HashSet<SourceId>,
+    ) {
+        let id = dep.source_id();
+        if visited.contains(&id) || !id.is_path() {
+            return;
+        }
+        let path = match id.url().to_file_path() {
+            Ok(p) => p.join("Cargo.toml"),
+            Err(_) => return,
+        };
+        let Ok(pkg) = ws.load(&path) else { return };
+        ret.entry(pkg.package_id().name().to_string())
+            .or_insert_with(HashMap::default)
+            .insert(
+                pkg.package_id().version().clone(),
+                pkg.package_id().source_id(),
+            );
+        visited.insert(pkg.package_id().source_id());
+        build_pkg(&pkg, ws, ret, visited);
     }
 }

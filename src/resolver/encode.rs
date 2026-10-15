@@ -116,8 +116,8 @@ use crate::util::data_structures::{HashMap, HashSet};
 use crate::util::errors::CargoResult;
 use crate::util::interning::InternedString;
 use crate::util::{Graph, internal};
-use crate::workspace::{Dependency, GitReference, Package, PackageId, Patch, SourceId, Workspace};
-use anyhow::{Context as _, bail};
+use crate::workspace::{GitReference, PackageId, SourceId};
+use anyhow::Context as _;
 use cargo_util_schemas::lockfile::{
     TomlLockfile, TomlLockfileDependency, TomlLockfilePackageId, TomlLockfilePatch,
     TomlLockfileSourceId,
@@ -133,35 +133,23 @@ use tracing::debug;
 /// `features`. Care should be taken when using this Resolve. One of the
 /// primary uses is to be used with `resolve_with_previous` to guide the
 /// resolver to create a complete Resolve.
+/// Converts a parsed lockfile into a [`Resolve`].
+///
+/// * `version` is the [`ResolveVersion`] the lockfile declares, already
+///   validated by the caller (see `ops::lockfile`). Older encodings do not
+///   declare a version, so it may be bumped here based on what the content
+///   turns out to use.
+/// * `path_deps` maps the name of every path dependency reachable from the
+///   workspace to its versions and source IDs. Lockfiles do not record a
+///   source for path dependencies, so this is how they are identified; entries
+///   that no longer match a path dependency are dropped.
 pub fn into_resolve(
     resolve: TomlLockfile,
     original: &str,
-    ws: &Workspace<'_>,
+    mut version: ResolveVersion,
+    path_deps: &HashMap<String, HashMap<semver::Version, SourceId>>,
 ) -> CargoResult<Resolve> {
-    let path_deps: HashMap<String, HashMap<semver::Version, SourceId>> = build_path_deps(ws)?;
     let mut checksums = HashMap::default();
-
-    let mut version = match resolve.version {
-        Some(n @ 5) if ws.gctx().nightly_features_allowed => {
-            if ws.gctx().cli_unstable().next_lockfile_bump {
-                ResolveVersion::V5
-            } else {
-                anyhow::bail!("lock file version `{n}` requires `-Znext-lockfile-bump`");
-            }
-        }
-        Some(4) => ResolveVersion::V4,
-        Some(3) => ResolveVersion::V3,
-        Some(n) => bail!(
-            "lock file version `{}` was found, but this version of Cargo \
-             does not understand this lock file, perhaps Cargo needs \
-             to be updated?",
-            n,
-        ),
-        // Historically Cargo did not have a version indicator in lock
-        // files, so this could either be the V1 or V2 encoding. We assume
-        // an older format is being parsed until we see so otherwise.
-        None => ResolveVersion::V1,
-    };
 
     let packages = {
         let mut packages = resolve.package.unwrap_or_default();
@@ -191,7 +179,7 @@ pub fn into_resolve(
                 .as_ref()
                 .map(|source| SourceId::from_url(&source.source_str()))
                 .transpose()?
-                .or_else(|| get_source_id(&path_deps, &pkg).copied())
+                .or_else(|| get_source_id(path_deps, &pkg).copied())
             {
                 // We failed to find a local package in the workspace.
                 // It must have been removed and should be ignored.
@@ -361,7 +349,7 @@ pub fn into_resolve(
             .as_ref()
             .map(|source| SourceId::from_url(&source.source_str()))
             .transpose()?
-            .or_else(|| get_source_id(&path_deps, &pkg).copied())
+            .or_else(|| get_source_id(path_deps, &pkg).copied())
         {
             Some(src) => PackageId::try_new(&pkg.name, &pkg.version, src)?,
             None => continue,
@@ -424,80 +412,6 @@ pub fn into_resolve(
 
             None
         })
-    }
-}
-
-fn build_path_deps(
-    ws: &Workspace<'_>,
-) -> CargoResult<HashMap<String, HashMap<semver::Version, SourceId>>> {
-    // If a crate is **not** a path source, then we're probably in a situation
-    // such as `cargo install` with a lock file from a remote dependency. In
-    // that case we don't need to fixup any path dependencies (as they're not
-    // actually path dependencies any more), so we ignore them.
-    let members = ws
-        .members()
-        .filter(|p| p.package_id().source_id().is_path())
-        .collect::<Vec<_>>();
-
-    let mut ret: HashMap<String, HashMap<semver::Version, SourceId>> = HashMap::default();
-    let mut visited = HashSet::default();
-    for member in members.iter() {
-        ret.entry(member.package_id().name().to_string())
-            .or_insert_with(HashMap::default)
-            .insert(
-                member.package_id().version().clone(),
-                member.package_id().source_id(),
-            );
-        visited.insert(member.package_id().source_id());
-    }
-    for member in members.iter() {
-        build_pkg(member, ws, &mut ret, &mut visited);
-    }
-    for deps in ws.root_patch()?.values() {
-        for Patch { dep, loc: _ } in deps {
-            build_dep(dep, ws, &mut ret, &mut visited);
-        }
-    }
-    for (_, dep) in ws.root_replace() {
-        build_dep(dep, ws, &mut ret, &mut visited);
-    }
-
-    return Ok(ret);
-
-    fn build_pkg(
-        pkg: &Package,
-        ws: &Workspace<'_>,
-        ret: &mut HashMap<String, HashMap<semver::Version, SourceId>>,
-        visited: &mut HashSet<SourceId>,
-    ) {
-        for dep in pkg.dependencies() {
-            build_dep(dep, ws, ret, visited);
-        }
-    }
-
-    fn build_dep(
-        dep: &Dependency,
-        ws: &Workspace<'_>,
-        ret: &mut HashMap<String, HashMap<semver::Version, SourceId>>,
-        visited: &mut HashSet<SourceId>,
-    ) {
-        let id = dep.source_id();
-        if visited.contains(&id) || !id.is_path() {
-            return;
-        }
-        let path = match id.url().to_file_path() {
-            Ok(p) => p.join("Cargo.toml"),
-            Err(_) => return,
-        };
-        let Ok(pkg) = ws.load(&path) else { return };
-        ret.entry(pkg.package_id().name().to_string())
-            .or_insert_with(HashMap::default)
-            .insert(
-                pkg.package_id().version().clone(),
-                pkg.package_id().source_id(),
-            );
-        visited.insert(pkg.package_id().source_id());
-        build_pkg(&pkg, ws, ret, visited);
     }
 }
 
