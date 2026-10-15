@@ -518,7 +518,7 @@ impl Summaries {
                     // allow future cargo implementations to break the
                     // interpretation of each line here and older cargo will simply
                     // ignore the new lines.
-                    let summary = match IndexSummary::parse(line, source_id, cli_unstable) {
+                    let summary = match parse_index_summary(line, source_id, cli_unstable) {
                         Ok(summary) => summary,
                         Err(e) => {
                             // This should only happen when there is an index
@@ -602,7 +602,7 @@ impl MaybeIndexSummary {
             MaybeIndexSummary::Unparsed(range) => *range,
             MaybeIndexSummary::Parsed(summary) => return Ok(summary),
         };
-        let summary = IndexSummary::parse(&raw_data[range], source_id, cli_unstable)?;
+        let summary = parse_index_summary(&raw_data[range], source_id, cli_unstable)?;
         *self = MaybeIndexSummary::Parsed(summary);
         match self {
             MaybeIndexSummary::Unparsed(_) => unreachable!(),
@@ -617,95 +617,93 @@ impl From<IndexSummary> for MaybeIndexSummary {
     }
 }
 
-impl IndexSummary {
-    /// Parses a line from the registry's index file into an [`IndexSummary`]
-    /// for a package.
-    ///
-    /// The `line` provided is expected to be valid JSON. It is supposed to be
-    /// a [`IndexPackage`].
-    fn parse(
-        line: &[u8],
-        source_id: SourceId,
-        cli_unstable: &CliUnstable,
-    ) -> CargoResult<IndexSummary> {
-        // Subset of the index that is used at the end of the function
-        // Extracted so that we do not have to clone IndexPackage's fields
-        struct IndexSubset {
-            v: Option<u32>,
-            yanked: Option<bool>,
-        }
+/// Parses a line from the registry's index file into an [`IndexSummary`]
+/// for a package.
+///
+/// The `line` provided is expected to be valid JSON. It is supposed to be
+/// a [`IndexPackage`].
+fn parse_index_summary(
+    line: &[u8],
+    source_id: SourceId,
+    cli_unstable: &CliUnstable,
+) -> CargoResult<IndexSummary> {
+    // Subset of the index that is used at the end of the function
+    // Extracted so that we do not have to clone IndexPackage's fields
+    struct IndexSubset {
+        v: Option<u32>,
+        yanked: Option<bool>,
+    }
 
-        // ****CAUTION**** Please be extremely careful with returning errors
-        // from this function. Entries that error are not included in the
-        // index cache, and can cause cargo to get confused when switching
-        // between different versions that understand the index differently.
-        // Make sure to consider the INDEX_V_MAX and CURRENT_CACHE_VERSION
-        // values carefully when making changes here.
-        let index_summary = (|| {
-            let index = serde_json::from_slice::<IndexPackage<'_>>(line)?;
+    // ****CAUTION**** Please be extremely careful with returning errors
+    // from this function. Entries that error are not included in the
+    // index cache, and can cause cargo to get confused when switching
+    // between different versions that understand the index differently.
+    // Make sure to consider the INDEX_V_MAX and CURRENT_CACHE_VERSION
+    // values carefully when making changes here.
+    let index_summary = (|| {
+        let index = serde_json::from_slice::<IndexPackage<'_>>(line)?;
+        let subset = IndexSubset {
+            v: index.v,
+            yanked: index.yanked,
+        };
+        tracing::trace!("json parsed registry {}/{}", index.name, index.vers);
+        let summary = index_package_to_summary(index, source_id, cli_unstable)?;
+        Ok((subset, summary))
+    })();
+    let (subset, summary, valid) = match index_summary {
+        Ok((subset, summary)) => (subset, summary, true),
+        Err(err) => {
+            let Ok(IndexPackageMinimum { name, vers }) =
+                serde_json::from_slice::<IndexPackageMinimum<'_>>(line)
+            else {
+                // If we can't recover, prefer the original error
+                return Err(err);
+            };
+            tracing::info!(
+                "recoverying from failed parse of registry package {name}@{vers}: {err}"
+            );
+            let IndexPackageRustVersion { rust_version } =
+                serde_json::from_slice::<IndexPackageRustVersion>(line).unwrap_or_default();
+            let IndexPackageV { v } =
+                serde_json::from_slice::<IndexPackageV>(line).unwrap_or_default();
             let subset = IndexSubset {
-                v: index.v,
-                yanked: index.yanked,
+                v,
+                yanked: Default::default(),
+            };
+            let index = IndexPackage {
+                name,
+                vers,
+                rust_version,
+                v,
+                deps: Default::default(),
+                features: Default::default(),
+                features2: Default::default(),
+                cksum: Default::default(),
+                yanked: Default::default(),
+                links: Default::default(),
+                pubtime: Default::default(),
             };
             tracing::trace!("json parsed registry {}/{}", index.name, index.vers);
             let summary = index_package_to_summary(index, source_id, cli_unstable)?;
-            Ok((subset, summary))
-        })();
-        let (subset, summary, valid) = match index_summary {
-            Ok((subset, summary)) => (subset, summary, true),
-            Err(err) => {
-                let Ok(IndexPackageMinimum { name, vers }) =
-                    serde_json::from_slice::<IndexPackageMinimum<'_>>(line)
-                else {
-                    // If we can't recover, prefer the original error
-                    return Err(err);
-                };
-                tracing::info!(
-                    "recoverying from failed parse of registry package {name}@{vers}: {err}"
-                );
-                let IndexPackageRustVersion { rust_version } =
-                    serde_json::from_slice::<IndexPackageRustVersion>(line).unwrap_or_default();
-                let IndexPackageV { v } =
-                    serde_json::from_slice::<IndexPackageV>(line).unwrap_or_default();
-                let subset = IndexSubset {
-                    v,
-                    yanked: Default::default(),
-                };
-                let index = IndexPackage {
-                    name,
-                    vers,
-                    rust_version,
-                    v,
-                    deps: Default::default(),
-                    features: Default::default(),
-                    features2: Default::default(),
-                    cksum: Default::default(),
-                    yanked: Default::default(),
-                    links: Default::default(),
-                    pubtime: Default::default(),
-                };
-                tracing::trace!("json parsed registry {}/{}", index.name, index.vers);
-                let summary = index_package_to_summary(index, source_id, cli_unstable)?;
-                (subset, summary, false)
-            }
-        };
-        let v = subset.v.unwrap_or(1);
-
-        let v_max = if cli_unstable.bindeps {
-            INDEX_V_MAX + 1
-        } else {
-            INDEX_V_MAX
-        };
-
-        if v_max < v {
-            Ok(IndexSummary::Unsupported(summary, v))
-        } else if !valid {
-            Ok(IndexSummary::Invalid(summary))
-        } else if subset.yanked.unwrap_or(false) {
-            Ok(IndexSummary::Yanked(summary))
-        } else {
-            Ok(IndexSummary::Candidate(summary))
+            (subset, summary, false)
         }
+    };
+    let v = subset.v.unwrap_or(1);
+
+    let v_max = if cli_unstable.bindeps {
+        INDEX_V_MAX + 1
+    } else {
+        INDEX_V_MAX
+    };
+
+    if v_max < v {
+        Ok(IndexSummary::Unsupported(summary, v))
+    } else if !valid {
+        Ok(IndexSummary::Invalid(summary))
+    } else if subset.yanked.unwrap_or(false) {
+        Ok(IndexSummary::Yanked(summary))
+    } else {
+        Ok(IndexSummary::Candidate(summary))
     }
 }
 
