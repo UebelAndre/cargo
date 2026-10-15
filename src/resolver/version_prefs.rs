@@ -7,16 +7,9 @@ use std::time::Duration;
 
 use cargo_util_schemas::core::PartialVersion;
 
-use crate::context::CargoResolverConfig;
-use crate::context::GlobalRegistryConfig;
-use crate::context::IncompatiblePublishAge;
-use crate::context::RegistryConfig;
 use crate::sources::CRATES_IO_REGISTRY;
-use crate::util::CargoResult;
-use crate::util::GlobalContext;
 use crate::util::VersionReqMatchMode;
 use crate::util::interning::InternedString;
-use crate::util::time_span::parse_time_span;
 use crate::workspace::Dependency;
 use crate::workspace::PackageId;
 use crate::workspace::SourceId;
@@ -172,35 +165,6 @@ pub struct PublishAgePolicy {
 }
 
 impl PublishAgePolicy {
-    /// Builds the policy from `min-publish-age` configuration.
-    ///
-    /// Returns `None` when either meets
-    ///
-    /// * the resolver is configured to allow pubtime-incompatible versions
-    /// * no threshold is configured at all
-    pub fn new(now: Option<jiff::Timestamp>, gctx: &GlobalContext) -> CargoResult<Option<Self>> {
-        let resolver_config = gctx.get::<Option<CargoResolverConfig>>(["resolver"])?;
-        if resolver_config
-            .and_then(|c| c.incompatible_publish_age)
-            .is_some_and(|v| v == IncompatiblePublishAge::Allow)
-        {
-            return Ok(None);
-        }
-
-        Self::for_report(now, gctx)
-    }
-
-    /// Like [`PublishAgePolicy::new`] but ignore config from `[resolver]`,
-    /// so it report too-new packages regardess they are allowed or denied.
-    pub fn for_report(
-        now: Option<jiff::Timestamp>,
-        gctx: &GlobalContext,
-    ) -> CargoResult<Option<Self>> {
-        let (global, per_registry) = read_min_publish_age(gctx)?;
-        let invocation_time = now.unwrap_or_else(|| gctx.invocation_time());
-        Ok(Self::from_parts(invocation_time, global, per_registry))
-    }
-
     /// Builds the policy from already-parsed thresholds.
     ///
     /// * `invocation_time` is the reference "now" that ages are measured against.
@@ -295,42 +259,6 @@ impl PublishAgePolicy {
         }
     }
 }
-
-/// Reads `registry.global-min-publish-age` and every
-/// `registries.<name>.min-publish-age` from configuration.
-fn read_min_publish_age(
-    gctx: &GlobalContext,
-) -> CargoResult<(MinPublishAge, HashMap<String, MinPublishAge>)> {
-    let parse = |key: &str, config: Option<String>| -> CargoResult<MinPublishAge> {
-        let Some(config) = config else {
-            return Ok(MinPublishAge::Unset);
-        };
-        if config == "0" {
-            return Ok(MinPublishAge::None);
-        }
-        let duration = parse_time_span(&config)
-            .map_err(|e| anyhow::format_err!("invalid value for `{key}`: {e}"))?;
-        Ok(MinPublishAge::Age(duration, config))
-    };
-
-    let registry = gctx.get::<Option<GlobalRegistryConfig>>(["registry"])?;
-    let global = parse(
-        "registry.global-min-publish-age",
-        registry.and_then(|r| r.global_min_publish_age),
-    )?;
-    let mut per_registry = HashMap::default();
-    if let Some(registries) = gctx.get::<Option<HashMap<String, RegistryConfig>>>(["registries"])? {
-        for (name, config) in registries {
-            let limit = parse(
-                &format!("registries.{name}.min-publish-age"),
-                config.min_publish_age,
-            )?;
-            per_registry.insert(name, limit);
-        }
-    }
-    Ok((global, per_registry))
-}
-
 /// A configured `min-publish-age` value for one scope.
 #[derive(Debug, Clone)]
 pub enum MinPublishAge {
@@ -622,7 +550,16 @@ mod test {
     const NOW: &str = "2006-08-08T00:00:00Z";
 
     fn age(raw: &str) -> MinPublishAge {
-        MinPublishAge::Age(parse_time_span(raw).unwrap(), raw.to_string())
+        let (count, unit) = raw.split_once(' ').unwrap();
+        let count: u64 = count.parse().unwrap();
+        let factor = match unit.trim_end_matches('s') {
+            "second" => 1,
+            "minute" => 60,
+            "hour" => 60 * 60,
+            "day" => 24 * 60 * 60,
+            unit => panic!("unsupported unit `{unit}`"),
+        };
+        MinPublishAge::Age(Duration::from_secs(count * factor), raw.to_string())
     }
 
     fn hours(n: i64) -> jiff::SignedDuration {

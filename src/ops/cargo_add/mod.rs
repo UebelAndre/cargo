@@ -21,7 +21,6 @@ use toml_edit::Item as TomlItem;
 use crate::CargoResult;
 use crate::GlobalContext;
 use crate::ops::resolve_ws;
-use crate::resolver::PublishAgePolicy;
 use crate::sources::IndexSummary;
 use crate::sources::source::QueryKind;
 use crate::util::OptVersionReq;
@@ -868,7 +867,7 @@ fn get_latest_dependency(
 
             // `cargo add` selects a version outside the resolver,
             // so the `min-publish-age` policy must be applied here too.
-            let publish_age = PublishAgePolicy::new(None, gctx)?;
+            let publish_age = crate::resolver::publish_age_policy(None, gctx)?;
             if let Some(publish_age) = &publish_age {
                 let mut too_new = Vec::new();
                 possibilities.retain(|s| match publish_age.too_new(s) {

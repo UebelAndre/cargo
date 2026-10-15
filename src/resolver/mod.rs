@@ -66,8 +66,12 @@ use std::time::Duration;
 use tracing::{debug, trace};
 
 use crate::context::GlobalContext;
+use crate::context::{
+    CargoResolverConfig, GlobalRegistryConfig, IncompatiblePublishAge, RegistryConfig,
+};
 use crate::util::errors::CargoResult;
 use crate::util::local_poll_adapter::PollExt;
+use crate::util::time_span::parse_time_span;
 use crate::workspace::PackageIdSpec;
 use crate::workspace::{Dependency, PackageId, Registry, Summary};
 
@@ -82,6 +86,7 @@ pub use self::features::{CliFeatures, ForceAllTargets, HasDevUnits};
 pub use self::host::{GlobalContextHost, ResolverHost};
 pub use self::resolve::{Resolve, ResolveVersion};
 pub use self::types::{ResolveBehavior, ResolveOpts};
+pub use self::version_prefs::MinPublishAge;
 pub use self::version_prefs::PublishAgePolicy;
 pub use self::version_prefs::PublishAgeViolation;
 pub use self::version_prefs::VersionOrdering;
@@ -1106,4 +1111,74 @@ fn check_duplicate_pkgs_in_lockfile(resolve: &Resolve) -> CargoResult<()> {
         }
     }
     Ok(())
+}
+
+/// Builds the [`PublishAgePolicy`] from `min-publish-age` configuration.
+///
+/// Returns `None` when either
+///
+/// * the resolver is configured to allow pubtime-incompatible versions
+/// * no threshold is configured at all
+pub fn publish_age_policy(
+    now: Option<jiff::Timestamp>,
+    gctx: &GlobalContext,
+) -> CargoResult<Option<PublishAgePolicy>> {
+    let resolver_config = gctx.get::<Option<CargoResolverConfig>>(["resolver"])?;
+    if resolver_config
+        .and_then(|c| c.incompatible_publish_age)
+        .is_some_and(|v| v == IncompatiblePublishAge::Allow)
+    {
+        return Ok(None);
+    }
+    publish_age_policy_for_report(now, gctx)
+}
+
+/// Like [`publish_age_policy`] but ignores config from `[resolver]`, so it
+/// reports too-new packages regardless of whether they are allowed or denied.
+pub fn publish_age_policy_for_report(
+    now: Option<jiff::Timestamp>,
+    gctx: &GlobalContext,
+) -> CargoResult<Option<PublishAgePolicy>> {
+    let (global, per_registry) = read_min_publish_age(gctx)?;
+    let invocation_time = now.unwrap_or_else(|| gctx.invocation_time());
+    Ok(PublishAgePolicy::from_parts(
+        invocation_time,
+        global,
+        per_registry,
+    ))
+}
+
+/// Reads `registry.global-min-publish-age` and every
+/// `registries.<name>.min-publish-age` from configuration.
+fn read_min_publish_age(
+    gctx: &GlobalContext,
+) -> CargoResult<(MinPublishAge, HashMap<String, MinPublishAge>)> {
+    let parse = |key: &str, config: Option<String>| -> CargoResult<MinPublishAge> {
+        let Some(config) = config else {
+            return Ok(MinPublishAge::Unset);
+        };
+        if config == "0" {
+            return Ok(MinPublishAge::None);
+        }
+        let duration = parse_time_span(&config)
+            .map_err(|e| anyhow::format_err!("invalid value for `{key}`: {e}"))?;
+        Ok(MinPublishAge::Age(duration, config))
+    };
+
+    let registry = gctx.get::<Option<GlobalRegistryConfig>>(["registry"])?;
+    let global = parse(
+        "registry.global-min-publish-age",
+        registry.and_then(|r| r.global_min_publish_age),
+    )?;
+    let mut per_registry = HashMap::default();
+    if let Some(registries) = gctx.get::<Option<HashMap<String, RegistryConfig>>>(["registries"])? {
+        for (name, config) in registries {
+            let limit = parse(
+                &format!("registries.{name}.min-publish-age"),
+                config.min_publish_age,
+            )?;
+            per_registry.insert(name, limit);
+        }
+    }
+    Ok((global, per_registry))
 }

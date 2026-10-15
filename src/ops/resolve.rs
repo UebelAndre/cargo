@@ -59,7 +59,6 @@ use crate::compiler::ArtifactTargetExt;
 use crate::compiler::{CompileKind, RustcTargetData};
 use crate::context::FeatureUnification;
 use crate::ops;
-use crate::resolver::PublishAgePolicy;
 use crate::resolver::features::{
     CliFeatures, FeatureOpts, FeatureResolver, ForceAllTargets, RequestedFeatures, ResolvedFeatures,
 };
@@ -453,7 +452,9 @@ pub fn resolve_with_previous<'gctx>(
         version_prefs.publish_time(publish_time);
     }
     if ws.resolve_honors_publish_age() {
-        if let Some(policy) = PublishAgePolicy::new(ws.resolve_publish_time(), ws.gctx())? {
+        if let Some(policy) =
+            crate::resolver::publish_age_policy(ws.resolve_publish_time(), ws.gctx())?
+        {
             version_prefs.publish_age(policy);
         }
     }
