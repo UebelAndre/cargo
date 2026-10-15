@@ -222,11 +222,6 @@ pub use cargo_util_schemas::index::RegistryConfig;
 /// Not to be confused with `.cargo-ok` file in git sources.
 const PACKAGE_SOURCE_LOCK: &str = ".cargo-ok";
 
-pub const CRATES_IO_INDEX: &str = "https://github.com/rust-lang/crates.io-index";
-pub const CRATES_IO_HTTP_INDEX: &str = "sparse+https://index.crates.io/";
-pub const CRATES_IO_REGISTRY: &str = "crates-io";
-pub const CRATES_IO_DOMAIN: &str = "crates.io";
-
 /// The content inside `.cargo-ok`.
 /// See [`RegistrySource::unpack_package`] for more.
 #[derive(Deserialize, Serialize)]
@@ -401,6 +396,9 @@ pub enum MaybeLock {
 mod download;
 mod http_remote;
 pub(crate) mod index;
+pub use crate::workspace::registry_trait::{
+    CRATES_IO_DOMAIN, CRATES_IO_HTTP_INDEX, CRATES_IO_INDEX, CRATES_IO_REGISTRY,
+};
 pub use index::IndexSummary;
 mod git_remote;
 mod local;

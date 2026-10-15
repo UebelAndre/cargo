@@ -29,6 +29,7 @@ pub mod parser;
 mod patch;
 pub mod profiles;
 pub mod registry;
+pub mod registry_trait;
 mod source_id;
 mod source_id_ext;
 pub mod summary;
