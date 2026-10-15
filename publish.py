@@ -29,6 +29,7 @@ TO_PUBLISH = [
     'crates/cargo-util',
     'crates/crates-io',
     'crates/cargo-util-schemas',
+    'crates/cargo-resolver',
     'crates/cargo-util-terminal',
     'crates/cargo-test-macro',
     'crates/cargo-test-support',
