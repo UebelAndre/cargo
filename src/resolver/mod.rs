@@ -83,7 +83,8 @@ use self::types::{FeaturesSet, RcVecIter, RemainingDeps, ResolverProgress};
 
 pub use self::errors::{ActivateError, ActivateResult, ResolveError};
 pub use self::features::{CliFeatures, ForceAllTargets, HasDevUnits};
-pub use self::host::{GlobalContextHost, ResolverHost};
+pub use self::global_context_host::GlobalContextHost;
+pub use self::host::ResolverHost;
 pub use self::resolve::{Resolve, ResolveVersion};
 pub use self::types::{ResolveBehavior, ResolveOpts};
 pub use self::version_prefs::MinPublishAge;
@@ -99,6 +100,7 @@ mod dep_cache;
 pub(crate) mod encode;
 pub(crate) mod errors;
 pub mod features;
+mod global_context_host;
 mod host;
 mod resolve;
 mod types;
