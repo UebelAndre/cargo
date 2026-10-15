@@ -1,19 +1,19 @@
 //! This module implements support for preferring some versions of a package
 //! over other versions.
 
-use crate::util::data_structures::{HashMap, HashSet};
+use crate::data_structures::{HashMap, HashSet};
 use std::cmp::Ordering;
 use std::time::Duration;
 
 use cargo_util_schemas::core::PartialVersion;
 
-use crate::sources::CRATES_IO_REGISTRY;
-use crate::util::VersionReqMatchMode;
-use crate::util::interning::InternedString;
-use crate::workspace::Dependency;
-use crate::workspace::PackageId;
-use crate::workspace::SourceId;
-use crate::workspace::Summary;
+use crate::Dependency;
+use crate::PackageId;
+use crate::SourceId;
+use crate::Summary;
+use crate::VersionReqMatchMode;
+use crate::interning::InternedString;
+use crate::registry::CRATES_IO_REGISTRY;
 
 /// A collection of preferences for particular package versions.
 ///
@@ -352,10 +352,10 @@ fn format_age_as_single_unit(age: jiff::SignedDuration) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::sources::CRATES_IO_INDEX;
-    use crate::sources::CRATES_IO_REGISTRY;
-    use crate::util::IntoUrl as _;
-    use crate::workspace::SourceId;
+    use crate::IntoUrl as _;
+    use crate::SourceId;
+    use crate::registry::CRATES_IO_INDEX;
+    use crate::registry::CRATES_IO_REGISTRY;
 
     use std::collections::BTreeMap;
 

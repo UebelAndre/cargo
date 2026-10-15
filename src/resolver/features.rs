@@ -38,7 +38,7 @@
 //! [new feature resolver]: https://doc.rust-lang.org/nightly/cargo/reference/resolver.html#feature-resolver-version-2
 //! [`resolve_ws_with_opts`]: crate::ops::resolve_ws_with_opts
 
-pub use super::cli_features::{CliFeatures, RequestedFeatures};
+pub use cargo_resolver::{CliFeatures, RequestedFeatures};
 
 use crate::compiler::{CompileKind, CompileTarget, RustcTargetData};
 use crate::resolver::{Resolve, ResolveBehavior};

@@ -10,8 +10,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
+use crate::CargoResult;
+use crate::interning::InternedString;
 
 /// What the resolver needs from the application embedding it.
 ///

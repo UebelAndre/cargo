@@ -2,19 +2,19 @@ use std::fmt;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use crate::sources::IndexSummary;
-use crate::sources::source::QueryKind;
-use crate::util::edit_distance::{closest, edit_distance};
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::util::{OptVersionReq, VersionExt};
-use crate::workspace::{Dependency, PackageId, Registry, Summary};
+use crate::CargoResult;
+use crate::IndexSummary;
+use crate::QueryKind;
+use crate::edit_distance::{closest, edit_distance};
+use crate::interning::InternedString;
+use crate::{Dependency, PackageId, Registry, Summary};
+use crate::{OptVersionReq, VersionExt};
 use anyhow::Error;
 
 use super::VersionPreferences;
 use super::context::ResolverContext;
-use super::host::ResolverHost;
 use super::types::{ConflictMap, ConflictReason};
+use crate::host::ResolverHost;
 
 /// Error during resolution providing a path of `PackageId`s.
 pub struct ResolveError {
@@ -379,7 +379,7 @@ pub(super) fn activation_error(
             );
         }
     } else if let Some(packages) = alt_paths(dep, host) {
-        let path = crate::util::file_url::to_file_path(dep.source_id().url()).unwrap();
+        let path = crate::file_url::to_file_path(dep.source_id().url()).unwrap();
         let _ = writeln!(
             &mut msg,
             "no matching package named `{}` found",
@@ -603,7 +603,7 @@ fn alt_paths(dep: &Dependency, host: &dyn ResolverHost) -> Option<Vec<(InternedS
     if !dep.source_id().is_path() {
         return None;
     }
-    let path = crate::util::file_url::to_file_path(dep.source_id().url()).ok()?;
+    let path = crate::file_url::to_file_path(dep.source_id().url()).ok()?;
     let packages = host.packages_at_path(&path);
     if packages.is_empty() {
         None
@@ -632,7 +632,7 @@ pub(super) fn describe_path_in_context(cx: &ResolverContext, id: &PackageId) -> 
 /// -> (pkg1, dep from pkg1 satisfied by pkg0)
 /// -> (pkg2, dep from pkg2 satisfied by pkg1)
 /// -> ...
-pub(crate) fn describe_path<'a>(
+pub fn describe_path<'a>(
     mut path: impl Iterator<Item = (&'a PackageId, Option<&'a Dependency>)>,
 ) -> String {
     use std::fmt::Write;

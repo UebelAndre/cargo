@@ -9,7 +9,7 @@
 //! The former is just one kind of source,
 //! while the latter involves operations on the registry Web API.
 
-pub use super::registry_trait::{IndexSummary, QueryKind, Registry};
+pub use cargo_resolver::{IndexSummary, QueryKind, Registry};
 
 use crate::util::data_structures::{HashMap, HashSet};
 use std::cell::RefCell;

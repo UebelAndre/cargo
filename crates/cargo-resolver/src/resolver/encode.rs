@@ -112,11 +112,11 @@
 //!   format.
 
 use super::{Resolve, ResolveVersion};
-use crate::util::data_structures::{HashMap, HashSet};
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::util::{Graph, internal};
-use crate::workspace::{GitReference, PackageId, SourceId};
+use crate::CargoResult;
+use crate::Graph;
+use crate::data_structures::{HashMap, HashSet};
+use crate::interning::InternedString;
+use crate::{GitReference, PackageId, SourceId};
 use anyhow::Context as _;
 use cargo_util_schemas::lockfile::{
     TomlLockfile, TomlLockfileDependency, TomlLockfilePackageId, TomlLockfilePatch,
@@ -320,7 +320,7 @@ pub fn into_resolve(
         let k = k.strip_prefix(prefix).unwrap();
         let enc_id: TomlLockfilePackageId = k
             .parse()
-            .with_context(|| internal("invalid encoding of checksum in lockfile"))?;
+            .with_context(|| "invalid encoding of checksum in lockfile")?;
         let Some(id) = lookup_id(&enc_id) else {
             continue;
         };

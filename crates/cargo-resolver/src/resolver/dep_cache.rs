@@ -9,6 +9,12 @@
 //!
 //! This module impl that cache in all the gory details
 
+use crate::CargoResult;
+use crate::IndexSummary;
+use crate::QueryKind;
+use crate::edit_distance::closest_msg;
+use crate::interning::{INTERNED_DEFAULT, InternedString};
+use crate::local_poll_adapter::LocalPollAdapter;
 use crate::resolver::context::ResolverContext;
 use crate::resolver::errors::describe_path_in_context;
 use crate::resolver::types::{ConflictReason, DepInfo, FeaturesSet};
@@ -16,17 +22,11 @@ use crate::resolver::{
     ActivateError, ActivateResult, CliFeatures, RequestedFeatures, ResolveOpts, VersionOrdering,
     VersionPreferences,
 };
-use crate::sources::IndexSummary;
-use crate::sources::source::QueryKind;
-use crate::util::LocalPollAdapter;
-use crate::util::closest_msg;
-use crate::util::errors::CargoResult;
-use crate::util::interning::{INTERNED_DEFAULT, InternedString};
-use crate::workspace::{
+use crate::{
     Dependency, FeatureValue, PackageId, PackageIdSpec, PackageIdSpecQuery, Registry, Summary,
 };
 
-use crate::util::data_structures::{HashMap, HashSet};
+use crate::data_structures::{HashMap, HashSet};
 use anyhow::Context as _;
 use std::cell::RefCell;
 use std::collections::BTreeSet;

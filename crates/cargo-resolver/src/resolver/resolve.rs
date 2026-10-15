@@ -1,12 +1,12 @@
 use cargo_util_schemas::core::PartialVersion;
 use cargo_util_schemas::manifest::RustVersion;
 
-use crate::util::Graph;
-use crate::util::data_structures::{HashMap, HashSet};
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::workspace::dependency::DepKind;
-use crate::workspace::{Dependency, PackageId, PackageIdSpec, PackageIdSpecQuery, Summary};
+use crate::CargoResult;
+use crate::Graph;
+use crate::data_structures::{HashMap, HashSet};
+use crate::dependency::DepKind;
+use crate::interning::InternedString;
+use crate::{Dependency, PackageId, PackageIdSpec, PackageIdSpecQuery, Summary};
 use cargo_util_schemas::lockfile::TomlLockfileMetadata;
 use std::borrow::Borrow;
 use std::fmt;

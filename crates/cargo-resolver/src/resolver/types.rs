@@ -1,8 +1,8 @@
 use super::features::{CliFeatures, RequestedFeatures};
-use super::host::ResolverHost;
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::workspace::{Dependency, PackageId, SourceId, Summary};
+use crate::CargoResult;
+use crate::host::ResolverHost;
+use crate::interning::InternedString;
+use crate::{Dependency, PackageId, SourceId, Summary};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;

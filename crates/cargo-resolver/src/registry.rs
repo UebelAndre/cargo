@@ -1,18 +1,17 @@
 //! The [`Registry`] trait the dependency resolver queries, and the types it
 //! is expressed in.
 //!
-//! [`PackageRegistry`](super::registry::PackageRegistry) is Cargo's
-//! implementation; `resolver-tests` has another.
+//! Cargo's `PackageRegistry` is one implementation; `resolver-tests` has another.
 
-use crate::util::errors::CargoResult;
-use crate::workspace::{Dependency, PackageId, SourceId, Summary};
+use crate::CargoResult;
+use crate::{Dependency, PackageId, SourceId, Summary};
 
 pub const CRATES_IO_INDEX: &str = "https://github.com/rust-lang/crates.io-index";
 pub const CRATES_IO_HTTP_INDEX: &str = "sparse+https://index.crates.io/";
 pub const CRATES_IO_REGISTRY: &str = "crates-io";
 pub const CRATES_IO_DOMAIN: &str = "crates.io";
 
-/// Defines how a dependency query will be performed for a [`Source`](crate::sources::source::Source).
+/// Defines how a dependency query will be performed for a `Source`.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum QueryKind {
     /// A query for packages exactly matching the given dependency requirement.
@@ -61,7 +60,7 @@ impl IndexSummary {
     /// Extract the summary from any variant.
     ///
     /// You should not use this unless you know what you are doing.
-    pub(crate) fn as_summary_unchecked(&self) -> &Summary {
+    pub fn as_summary_unchecked(&self) -> &Summary {
         match self {
             IndexSummary::Candidate(sum)
             | IndexSummary::Yanked(sum)
@@ -107,10 +106,10 @@ impl IndexSummary {
 /// about a group of packages, without leaking too much implementation details
 /// of the actual registry.
 ///
-/// As of 2024-04, only [`PackageRegistry`] and `MyRegistry` in resolver-tests
+/// As of 2024-04, only Cargo's `PackageRegistry` and `MyRegistry` in resolver-tests
 /// are found implementing this.
 ///
-/// See also the [`Source`](crate::sources::source::Source) trait, as many of the methods here mirror and
+/// See also the `Source` trait, as many of the methods here mirror and
 /// abstract over its functionalities.
 #[allow(async_fn_in_trait)]
 pub trait Registry {

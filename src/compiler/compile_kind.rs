@@ -5,7 +5,7 @@ use crate::util::{GlobalContext, StableHasher};
 use crate::workspace::Target;
 use crate::workspace::dependency::ArtifactTarget;
 
-pub use super::compile_target::CompileTarget;
+pub use cargo_resolver::CompileTarget;
 use cargo_util::ProcessBuilder;
 use std::collections::BTreeSet;
 use std::fs;

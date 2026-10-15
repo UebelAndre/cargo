@@ -34,7 +34,6 @@ pub(crate) mod build_context;
 pub(crate) mod build_runner;
 mod compilation;
 mod compile_kind;
-mod compile_target;
 mod crate_type;
 mod custom_build;
 pub(crate) mod fingerprint;

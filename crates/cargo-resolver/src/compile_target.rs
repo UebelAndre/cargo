@@ -7,8 +7,8 @@ use anyhow::Context as _;
 use anyhow::bail;
 use serde::Serialize;
 
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
+use crate::CargoResult;
+use crate::interning::InternedString;
 
 /// Abstraction for the representation of a compilation target that Cargo has.
 ///

@@ -1,4 +1,4 @@
-use crate::util::errors::CargoResult;
+use crate::CargoResult;
 use std::hash::{self, Hash};
 use url::Url;
 

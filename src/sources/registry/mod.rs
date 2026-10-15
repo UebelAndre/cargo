@@ -396,7 +396,7 @@ pub enum MaybeLock {
 mod download;
 mod http_remote;
 pub(crate) mod index;
-pub use crate::workspace::registry_trait::{
+pub use cargo_resolver::{
     CRATES_IO_DOMAIN, CRATES_IO_HTTP_INDEX, CRATES_IO_INDEX, CRATES_IO_REGISTRY,
 };
 pub use index::IndexSummary;

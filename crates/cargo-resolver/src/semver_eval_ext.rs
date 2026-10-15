@@ -275,7 +275,7 @@ fn matches_caret_prerelease(cmp: &Comparator, ver: &Version) -> bool {
 
 #[cfg(test)]
 mod matches_prerelease_semantic {
-    use crate::util::semver_ext::VersionReqExt;
+    use crate::semver_ext::VersionReqExt;
     use semver::{Version, VersionReq};
 
     fn assert_match_all(req: &VersionReq, versions: &[&str]) {

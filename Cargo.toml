@@ -33,6 +33,7 @@ cargo-credential-libsecret = { version = "0.5.11", path = "credential/cargo-cred
 cargo-credential-macos-keychain = { version = "0.4.26", path = "credential/cargo-credential-macos-keychain" }
 cargo-credential-wincred = { version = "0.4.26", path = "credential/cargo-credential-wincred" }
 cargo-platform = { path = "crates/cargo-platform", version = "0.3.3" }
+cargo-resolver = { version = "0.1.0", path = "crates/cargo-resolver" }
 cargo-test-macro = { version = "0.4.15", path = "crates/cargo-test-macro" }
 cargo-test-support = { version = "0.12.0", path = "crates/cargo-test-support" }
 cargo-util = { version = "0.3.0", path = "crates/cargo-util" }
@@ -166,6 +167,7 @@ base64.workspace = true
 blake3.workspace = true
 cargo-credential.workspace = true
 cargo-platform.workspace = true
+cargo-resolver.workspace = true
 cargo-util-schemas.workspace = true
 cargo-util-terminal.workspace = true
 cargo-util.workspace = true
@@ -260,11 +262,6 @@ features = [
   "Win32_System_JobObjects",
   "Win32_System_Threading",
 ]
-
-# `url` only converts between paths and `file://` URLs on targets it knows
-# the path syntax of; elsewhere `util::file_url` provides a minimal fallback.
-[target.'cfg(not(any(unix, windows, target_os = "redox", target_os = "wasi", target_os = "hermit")))'.dependencies]
-percent-encoding.workspace = true
 
 [dev-dependencies]
 annotate-snippets = { workspace = true, features = ["testing-colors"] }

@@ -1,0 +1,31 @@
+[package]
+name = "cargo-resolver"
+version = "0.1.0"
+rust-version = "1.99"  # MSRV:1
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/cargo-resolver"
+description = "Cargo's dependency resolver"
+
+[dependencies]
+anyhow.workspace = true
+cargo-platform.workspace = true
+cargo-util-schemas.workspace = true
+futures.workspace = true
+im-rc.workspace = true
+jiff = { workspace = true, features = ["std"] }
+rustc-hash.workspace = true
+semver.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde-untagged.workspace = true
+tracing = { workspace = true, features = ["attributes"] }
+url.workspace = true
+
+# `url` only converts between paths and `file://` URLs on targets it knows
+# the path syntax of; elsewhere a minimal fallback is used.
+[target.'cfg(not(any(unix, windows, target_os = "redox", target_os = "wasi", target_os = "hermit")))'.dependencies]
+percent-encoding.workspace = true
+
+[lints]
+workspace = true

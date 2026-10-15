@@ -8,12 +8,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::trace;
 
-use crate::compiler::CompileTarget;
-use crate::util::OptVersionReq;
-use crate::util::VersionReqMatchMode;
-use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::workspace::{PackageId, SourceId, Summary};
+use crate::CargoResult;
+use crate::OptVersionReq;
+use crate::VersionReqMatchMode;
+use crate::compile_target::CompileTarget;
+use crate::interning::InternedString;
+use crate::{PackageId, SourceId, Summary};
 
 /// Information about a dependency requested by a Cargo manifest.
 /// Cheap to copy.
@@ -437,7 +437,7 @@ impl Dependency {
         self
     }
 
-    pub(crate) fn set_artifact(&mut self, artifact: Artifact) {
+    pub fn set_artifact(&mut self, artifact: Artifact) {
         Arc::make_mut(&mut self.inner).artifact = Some(artifact);
     }
 
@@ -448,7 +448,7 @@ impl Dependency {
     /// Dependencies are potential rust libs if they are not artifacts or they are an
     /// artifact which allows to be seen as library.
     /// Previously, every dependency was potentially seen as library.
-    pub(crate) fn maybe_lib(&self) -> bool {
+    pub fn maybe_lib(&self) -> bool {
         self.artifact().map(|a| a.is_lib).unwrap_or(true)
     }
 }
@@ -488,7 +488,7 @@ impl ser::Serialize for Artifact {
 }
 
 impl Artifact {
-    pub(crate) fn parse(
+    pub fn parse(
         artifacts: &[impl AsRef<str>],
         is_lib: bool,
         target: Option<&str>,

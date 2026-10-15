@@ -30,7 +30,8 @@
 //!     flows to completion.
 //! - [`ops::resolve`]:
 //!   Top-level API for dependency and feature resolver (e.g. [`ops::resolve_ws`])
-//!   - [`resolver`]: The core algorithm
+//!   - [`resolver`]: Cargo's integration with the dependency resolver and the feature resolver
+//!   - [`cargo-resolver`](https://crates.io/crates/cargo-resolver): The core algorithm
 //! - [`compiler`]:
 //!   This is the code responsible for running `rustc` and `rustdoc`.
 //!   - [`compiler::build_context`]:

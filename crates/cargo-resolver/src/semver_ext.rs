@@ -1,4 +1,4 @@
-use super::semver_eval_ext;
+use crate::semver_eval_ext;
 use semver::{Comparator, Op, Version, VersionReq};
 use std::fmt::{self, Display};
 

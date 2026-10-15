@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use anyhow::bail;
 
+use crate::CargoResult;
+use crate::FeatureValue;
 use crate::resolver::types::FeaturesSet;
-use crate::util::CargoResult;
-use crate::workspace::FeatureValue;
 
 /// Features flags requested for a package.
 ///

@@ -1,10 +1,10 @@
-use crate::sources::registry::CRATES_IO_HTTP_INDEX;
-use crate::sources::{CRATES_IO_DOMAIN, CRATES_IO_INDEX};
-use crate::util::data_structures::HashSet;
-use crate::util::interning::InternedString;
-use crate::util::{CanonicalUrl, CargoResult, IntoUrl};
-use crate::workspace::GitReference;
-use crate::workspace::SourceKind;
+use crate::GitReference;
+use crate::SourceKind;
+use crate::data_structures::HashSet;
+use crate::interning::InternedString;
+use crate::registry::CRATES_IO_HTTP_INDEX;
+use crate::registry::{CRATES_IO_DOMAIN, CRATES_IO_INDEX};
+use crate::{CanonicalUrl, CargoResult, IntoUrl};
 use anyhow::Context as _;
 use serde::de;
 use serde::ser;
@@ -26,11 +26,9 @@ static SOURCE_ID_CACHE: OnceLock<Mutex<HashSet<&'static SourceIdInner>>> = OnceL
 /// the "code source" in `PackageId`. See [`SourceId::hash`] to learn what are
 /// taken into account for the uniqueness of a source.
 ///
-/// `SourceId` is usually associated with an instance of [`Source`], which is
-/// supposed to provide a `SourceId` via [`Source::source_id`] method.
+/// `SourceId` is usually associated with an instance of `Source`, which is
+/// supposed to provide a `SourceId` via `Source::source_id` method.
 ///
-/// [`Source`]: crate::sources::source::Source
-/// [`Source::source_id`]: crate::sources::source::Source::source_id
 /// [`PackageId`]: super::PackageId
 #[derive(Clone, Copy, Eq, Debug)]
 pub struct SourceId {
@@ -141,7 +139,7 @@ impl SourceId {
     /// ## Example
     ///
     /// ```
-    /// use cargo::workspace::SourceId;
+    /// use cargo_resolver::SourceId;
     /// SourceId::from_url("git+https://github.com/alexcrichton/\
     ///                     libssh2-static-sys#80e71a3021618eb05\
     ///                     656c58fb7c5ef5f12bc747f");
@@ -296,7 +294,7 @@ impl SourceId {
             return None;
         }
 
-        Some(crate::util::file_url::to_file_path(&self.inner.url).unwrap())
+        Some(crate::file_url::to_file_path(&self.inner.url).unwrap())
     }
 
     pub fn kind(&self) -> &SourceKind {
@@ -458,7 +456,7 @@ impl SourceId {
     /// same hash in different locations, helping reproducible builds.
     pub fn stable_hash<S: hash::Hasher>(self, workspace: &Path, into: &mut S) {
         if self.is_path() {
-            if let Ok(p) = crate::util::file_url::to_file_path(&self.inner.url)
+            if let Ok(p) = crate::file_url::to_file_path(&self.inner.url)
                 .unwrap()
                 .strip_prefix(workspace)
             {
@@ -537,7 +535,7 @@ impl<'de> de::Deserialize<'de> for SourceId {
 
 fn url_display(url: &Url) -> String {
     if url.scheme() == "file" {
-        if let Ok(path) = crate::util::file_url::to_file_path(url) {
+        if let Ok(path) = crate::file_url::to_file_path(url) {
             if let Some(path_str) = path.to_str() {
                 return path_str.to_string();
             }
@@ -655,7 +653,7 @@ impl KeyOf {
 #[cfg(test)]
 mod tests {
     use super::{GitReference, SourceId, SourceKind};
-    use crate::util::IntoUrl;
+    use crate::IntoUrl;
 
     #[test]
     fn github_sources_equal() {

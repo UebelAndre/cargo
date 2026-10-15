@@ -378,6 +378,7 @@ dependencies = [
  "cargo-credential-macos-keychain",
  "cargo-credential-wincred",
  "cargo-platform 0.3.3",
+ "cargo-resolver",
  "cargo-test-support",
  "cargo-util",
  "cargo-util-schemas",
@@ -418,7 +419,6 @@ dependencies = [
  "openssl-src",
  "os_info",
  "pathdiff",
- "percent-encoding",
  "portable-atomic",
  "rand 0.10.1",
  "regex",
@@ -519,6 +519,25 @@ checksum = "dd0061da739915fae12ea00e16397555ed4371a6bb285431aab930f61b0aa4ba"
 dependencies = [
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "cargo-resolver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cargo-platform 0.3.3",
+ "cargo-util-schemas",
+ "futures",
+ "im-rc",
+ "jiff",
+ "percent-encoding",
+ "rustc-hash 2.1.2",
+ "semver",
+ "serde",
+ "serde-untagged",
+ "tracing",
+ "url",
 ]
 
 [[package]]
