@@ -15,7 +15,7 @@ use crate::util::OptVersionReq;
 use crate::util::VersionReqMatchMode;
 use crate::util::errors::CargoResult;
 use crate::util::interning::InternedString;
-use crate::workspace::{CliUnstable, Feature, Features, PackageId, SourceId, Summary};
+use crate::workspace::{PackageId, SourceId, Summary};
 
 /// Information about a dependency requested by a Cargo manifest.
 /// Cheap to copy.
@@ -167,11 +167,9 @@ impl Dependency {
         }
     }
 
-    pub fn serialized(
-        &self,
-        unstable_flags: &CliUnstable,
-        features: &Features,
-    ) -> SerializedDependency {
+    /// `public_dependency` is whether the `public` field should be emitted,
+    /// i.e. whether the caller has the `public-dependency` feature enabled.
+    pub fn serialized(&self, public_dependency: bool) -> SerializedDependency {
         SerializedDependency {
             name: self.package_name(),
             source: self.source_id(),
@@ -185,13 +183,7 @@ impl Dependency {
             registry: self.registry_id().as_ref().map(|sid| sid.url().to_string()),
             path: self.source_id().local_path(),
             artifact: self.inner.artifact.clone(),
-            public: if unstable_flags.public_dependency
-                || features.is_enabled(Feature::public_dependency())
-            {
-                Some(self.inner.public)
-            } else {
-                None
-            },
+            public: public_dependency.then_some(self.inner.public),
         }
     }
 

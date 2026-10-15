@@ -244,6 +244,9 @@ impl Package {
             crate_features.insert(*k, enables);
         }
 
+        let public_dependency = unstable_flags.public_dependency
+            || cargo_features.is_enabled(Feature::public_dependency());
+
         SerializedPackage {
             name: package_id.name(),
             version: package_id.version().clone(),
@@ -255,7 +258,7 @@ impl Package {
             dependencies: summary
                 .dependencies()
                 .iter()
-                .map(|dep| dep.serialized(unstable_flags, cargo_features))
+                .map(|dep| dep.serialized(public_dependency))
                 .collect(),
             targets,
             features: crate_features,
