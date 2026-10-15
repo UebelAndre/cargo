@@ -414,7 +414,7 @@ impl GlobalCacheTracker {
             .prepare_cached("SELECT name, timestamp FROM registry_index")?;
         let rows = stmt
             .query_map([], |row| {
-                let encoded_registry_name = row.get_unwrap(0);
+                let encoded_registry_name = InternedString::new(&row.get_unwrap::<_, String>(0));
                 let timestamp = row.get_unwrap(1);
                 let kind = RegistryIndex {
                     encoded_registry_name,
@@ -434,8 +434,8 @@ impl GlobalCacheTracker {
         )?;
         let rows = stmt
             .query_map([], |row| {
-                let encoded_registry_name = row.get_unwrap(0);
-                let crate_filename = row.get_unwrap(1);
+                let encoded_registry_name = InternedString::new(&row.get_unwrap::<_, String>(0));
+                let crate_filename = InternedString::new(&row.get_unwrap::<_, String>(1));
                 let size = row.get_unwrap(2);
                 let timestamp = row.get_unwrap(3);
                 let kind = RegistryCrate {
@@ -458,8 +458,8 @@ impl GlobalCacheTracker {
         )?;
         let rows = stmt
             .query_map([], |row| {
-                let encoded_registry_name = row.get_unwrap(0);
-                let package_dir = row.get_unwrap(1);
+                let encoded_registry_name = InternedString::new(&row.get_unwrap::<_, String>(0));
+                let package_dir = InternedString::new(&row.get_unwrap::<_, String>(1));
                 let size = row.get_unwrap(2);
                 let timestamp = row.get_unwrap(3);
                 let kind = RegistrySrc {
@@ -480,7 +480,7 @@ impl GlobalCacheTracker {
             .prepare_cached("SELECT name, timestamp FROM git_db")?;
         let rows = stmt
             .query_map([], |row| {
-                let encoded_git_name = row.get_unwrap(0);
+                let encoded_git_name = InternedString::new(&row.get_unwrap::<_, String>(0));
                 let timestamp = row.get_unwrap(1);
                 let kind = GitDb { encoded_git_name };
                 Ok((kind, timestamp))
@@ -498,8 +498,8 @@ impl GlobalCacheTracker {
         )?;
         let rows = stmt
             .query_map([], |row| {
-                let encoded_git_name = row.get_unwrap(0);
-                let short_name = row.get_unwrap(1);
+                let encoded_git_name = InternedString::new(&row.get_unwrap::<_, String>(0));
+                let short_name = InternedString::new(&row.get_unwrap::<_, String>(1));
                 let size = row.get_unwrap(2);
                 let timestamp = row.get_unwrap(3);
                 let kind = GitCheckout {
@@ -1390,7 +1390,7 @@ macro_rules! insert_or_update_parent {
                 parent,
                 new_timestamp
             );
-            let mut rows = select_stmt.query([parent.$encoded_name])?;
+            let mut rows = select_stmt.query([parent.$encoded_name.as_str()])?;
             let id = if let Some(row) = rows.next()? {
                 let id: ParentId = row.get_unwrap(0);
                 let timestamp: Timestamp = row.get_unwrap(1);
@@ -1399,7 +1399,7 @@ macro_rules! insert_or_update_parent {
                 }
                 id
             } else {
-                insert_stmt.query_row(params![parent.$encoded_name, new_timestamp], |row| {
+                insert_stmt.query_row(params![parent.$encoded_name.as_str(), new_timestamp], |row| {
                     row.get(0)
                 })?
             };
@@ -1667,7 +1667,7 @@ impl DeferredGlobalLastUse {
             )?;
             stmt.execute(params![
                 registry_id,
-                registry_crate.crate_filename,
+                registry_crate.crate_filename.as_str(),
                 registry_crate.size,
                 timestamp,
                 timestamp - UPDATE_RESOLUTION
@@ -1692,7 +1692,7 @@ impl DeferredGlobalLastUse {
             )?;
             stmt.execute(params![
                 registry_id,
-                registry_src.package_dir,
+                registry_src.package_dir.as_str(),
                 registry_src.size,
                 timestamp,
                 timestamp - UPDATE_RESOLUTION
@@ -1716,7 +1716,7 @@ impl DeferredGlobalLastUse {
             )?;
             stmt.execute(params![
                 git_id,
-                git_checkout.short_name,
+                git_checkout.short_name.as_str(),
                 git_checkout.size,
                 timestamp,
                 timestamp - UPDATE_RESOLUTION
