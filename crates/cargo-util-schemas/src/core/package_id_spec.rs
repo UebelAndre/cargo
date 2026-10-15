@@ -86,8 +86,8 @@ impl PackageIdSpec {
         } else if spec.contains('/') || spec.contains('\\') {
             let abs = std::env::current_dir().unwrap_or_default().join(spec);
             if abs.exists() {
-                let maybe_url = Url::from_file_path(abs)
-                    .map_or_else(|_| "a file:// URL".to_string(), |url| url.to_string());
+                let maybe_url = file_path_url(&abs)
+                    .map_or_else(|| "a file:// URL".to_string(), |url| url.to_string());
                 return Err(ErrorKind::MaybeFilePath {
                     spec: spec.into(),
                     maybe_url,
@@ -270,6 +270,34 @@ impl PackageIdSpec {
     pub fn set_kind(&mut self, kind: SourceKind) {
         self.kind = Some(kind);
     }
+}
+
+/// Converts a filesystem path to a `file://` URL, where the target supports it.
+///
+/// `Url::from_file_path` only exists on targets whose path syntax the `url`
+/// crate understands. Elsewhere (e.g. `wasm32-unknown-unknown`) the hint in the
+/// error message is simply less specific.
+#[cfg(any(
+    unix,
+    windows,
+    target_os = "redox",
+    target_os = "wasi",
+    target_os = "hermit"
+))]
+fn file_path_url(path: &std::path::Path) -> Option<Url> {
+    Url::from_file_path(path).ok()
+}
+
+/// Converts a filesystem path to a `file://` URL, where the target supports it.
+#[cfg(not(any(
+    unix,
+    windows,
+    target_os = "redox",
+    target_os = "wasi",
+    target_os = "hermit"
+)))]
+fn file_path_url(_path: &std::path::Path) -> Option<Url> {
+    None
 }
 
 fn parse_spec(spec: &str) -> Result<Option<(String, PartialVersion)>> {
