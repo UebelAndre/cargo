@@ -3,16 +3,17 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::sources::IndexSummary;
-use crate::sources::path::RecursivePathSource;
 use crate::sources::source::QueryKind;
 use crate::util::edit_distance::{closest, edit_distance};
 use crate::util::errors::CargoResult;
-use crate::util::{GlobalContext, OptVersionReq, VersionExt};
+use crate::util::interning::InternedString;
+use crate::util::{OptVersionReq, VersionExt};
 use crate::workspace::{Dependency, PackageId, Registry, Summary};
 use anyhow::Error;
 
 use super::VersionPreferences;
 use super::context::ResolverContext;
+use super::host::ResolverHost;
 use super::types::{ConflictMap, ConflictReason};
 
 /// Error during resolution providing a path of `PackageId`s.
@@ -82,7 +83,7 @@ pub(super) fn activation_error(
     dep: &Dependency,
     conflicting_activations: &ConflictMap,
     candidates: &[Summary],
-    gctx: &GlobalContext,
+    host: &dyn ResolverHost,
 ) -> ResolveError {
     let to_resolve_err = |err| {
         ResolveError::new(
@@ -377,7 +378,7 @@ pub(super) fn activation_error(
                 "\nnote: perhaps a crate was updated and forgotten to be re-vendored?"
             );
         }
-    } else if let Some(packages) = alt_paths(dep, gctx) {
+    } else if let Some(packages) = alt_paths(dep, host) {
         let path = dep.source_id().url().to_file_path().unwrap();
         let _ = writeln!(
             &mut msg,
@@ -389,9 +390,9 @@ pub(super) fn activation_error(
         let mut found_dir: Option<String> = None;
         let mut names_found: Vec<(String, PathBuf)> = vec![];
 
-        for pkg in &packages {
-            let manifest_dir = pkg.manifest_path().parent().unwrap();
-            let p_name = pkg.name().as_str();
+        for (name, manifest_path) in &packages {
+            let manifest_dir = manifest_path.parent().unwrap();
+            let p_name = name.as_str();
             if p_name == dep.package_name().as_str() {
                 exact_match = Some(manifest_dir.to_path_buf());
                 break;
@@ -497,7 +498,7 @@ pub(super) fn activation_error(
         );
     }
 
-    if let Some(offline_flag) = gctx.offline_flag() {
+    if let Some(offline_flag) = host.offline_flag() {
         let _ = write!(
             &mut hints,
             "\nnote: offline mode (via `{offline_flag}`) \
@@ -596,17 +597,12 @@ fn alt_names(
 /// For path dependencies, scan the dependency directory for any packages
 /// that exist in subdirectories. This helps when the user points to a
 /// directory without a Cargo.toml or with the wrong package name.
-fn alt_paths(dep: &Dependency, gctx: &GlobalContext) -> Option<Vec<crate::workspace::Package>> {
+fn alt_paths(dep: &Dependency, host: &dyn ResolverHost) -> Option<Vec<(InternedString, PathBuf)>> {
     if !dep.source_id().is_path() {
         return None;
     }
     let path = dep.source_id().url().to_file_path().ok()?;
-    if !path.is_dir() {
-        return None;
-    }
-    let source_id = dep.source_id();
-    let source = RecursivePathSource::new(&path, source_id, gctx);
-    let packages = source.read_packages().ok()?;
+    let packages = host.packages_at_path(&path);
     if packages.is_empty() {
         None
     } else {

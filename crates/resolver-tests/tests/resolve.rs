@@ -1,15 +1,15 @@
-use cargo::util::GlobalContext;
 use cargo::workspace::Dependency;
 use cargo::workspace::dependency::DepKind;
 use snapbox::assert_data_eq;
 use snapbox::str;
 
 use resolver_tests::{
+    ResolveSettings,
     helpers::{
         ToDep, ToPkgId, assert_contains, assert_same, dep, dep_kind, dep_loc, dep_req, loc_names,
         names, pkg, pkg_dep, pkg_dep_with, pkg_id, pkg_loc, registry,
     },
-    pkg, resolve, resolve_with_global_context,
+    pkg, resolve, resolve_with_settings,
 };
 
 #[test]
@@ -160,30 +160,19 @@ fn test_resolving_minimum_version_with_transitive_deps() {
         pkg!("bar" => [dep_req("util", ">=1.0.1")]),
     ]);
 
-    let mut gctx = GlobalContext::default().unwrap();
     // -Z minimal-versions
     // When the minimal-versions config option is specified then the lowest
     // possible version of a package should be selected. "util 1.0.0" can't be
     // selected because of the requirements of "bar", so the minimum version
     // must be 1.1.1.
-    gctx.nightly_features_allowed = true;
-    gctx.configure(
-        1,
-        false,
-        None,
-        false,
-        false,
-        false,
-        &None,
-        &["minimal-versions".to_string()],
-        &[],
-    )
-    .unwrap();
 
-    let res = resolve_with_global_context(
+    let res = resolve_with_settings(
         vec![dep_req("foo", "1.0.0"), dep_req("bar", "1.0.0")],
         &reg,
-        &gctx,
+        ResolveSettings {
+            minimal_versions: true,
+            ..Default::default()
+        },
     )
     .unwrap()
     .into_iter()

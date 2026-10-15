@@ -16,12 +16,13 @@ use std::time::Instant;
 
 use cargo::resolver::Resolve;
 use cargo::resolver::ResolveVersion;
+use cargo::resolver::ResolverHost;
 use cargo::resolver::{self, ResolveOpts, VersionOrdering, VersionPreferences};
 use cargo::sources::IndexSummary;
 use cargo::sources::source::QueryKind;
+use cargo::util::CargoResult;
 use cargo::util::VersionReqMatchMode;
 use cargo::util::interning::InternedString;
-use cargo::util::{CargoResult, GlobalContext};
 use cargo::workspace::SourceId;
 use cargo::workspace::dependency::DepKind;
 use cargo::workspace::{Dependency, PackageId, Registry, Summary};
@@ -34,9 +35,35 @@ use proptest::prelude::*;
 use proptest::sample::Index;
 use proptest::string::string_regex;
 
+/// Resolver settings that tests can vary.
+///
+/// These correspond to Cargo's `-Zminimal-versions` and
+/// `-Zdirect-minimal-versions` flags.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ResolveSettings {
+    pub minimal_versions: bool,
+    pub direct_minimal_versions: bool,
+}
+
+/// The [`ResolverHost`] used by these tests: no shell, no filesystem.
+struct TestHost {
+    settings: ResolveSettings,
+    start: Instant,
+}
+
+impl ResolverHost for TestHost {
+    fn direct_minimal_versions(&self) -> bool {
+        self.settings.direct_minimal_versions
+    }
+
+    fn elapsed(&self) -> std::time::Duration {
+        self.start.elapsed()
+    }
+}
+
 pub fn resolve(deps: Vec<Dependency>, registry: &[Summary]) -> CargoResult<Vec<PackageId>> {
     Ok(
-        resolve_with_global_context(deps, registry, &GlobalContext::default().unwrap())?
+        resolve_with_settings(deps, registry, ResolveSettings::default())?
             .into_iter()
             .map(|(pkg, _)| pkg)
             .collect(),
@@ -58,11 +85,11 @@ pub fn resolve_and_validated_raw(
     root_pkg_id: PackageId,
     sat_resolver: &mut SatResolver,
 ) -> CargoResult<Vec<(PackageId, Vec<InternedString>)>> {
-    let resolve = resolve_with_global_context_raw(
+    let resolve = resolve_with_settings_raw(
         deps.clone(),
         registry,
         root_pkg_id,
-        &GlobalContext::default().unwrap(),
+        ResolveSettings::default(),
     );
 
     match resolve {
@@ -116,20 +143,20 @@ fn collect_features(resolve: &Resolve) -> Vec<(PackageId, Vec<InternedString>)> 
         .collect()
 }
 
-pub fn resolve_with_global_context(
+pub fn resolve_with_settings(
     deps: Vec<Dependency>,
     registry: &[Summary],
-    gctx: &GlobalContext,
+    settings: ResolveSettings,
 ) -> CargoResult<Vec<(PackageId, Vec<InternedString>)>> {
-    let resolve = resolve_with_global_context_raw(deps, registry, pkg_id("root"), gctx)?;
+    let resolve = resolve_with_settings_raw(deps, registry, pkg_id("root"), settings)?;
     Ok(collect_features(&resolve))
 }
 
-pub fn resolve_with_global_context_raw(
+pub fn resolve_with_settings_raw(
     deps: Vec<Dependency>,
     registry: &[Summary],
     root_pkg_id: PackageId,
-    gctx: &GlobalContext,
+    settings: ResolveSettings,
 ) -> CargoResult<Resolve> {
     struct MyRegistry<'a> {
         list: &'a [Summary],
@@ -197,17 +224,18 @@ pub fn resolve_with_global_context_raw(
 
     let start = Instant::now();
     let mut version_prefs = VersionPreferences::default();
-    if gctx.cli_unstable().minimal_versions {
+    if settings.minimal_versions {
         version_prefs.version_ordering(VersionOrdering::MinimumVersionsFirst)
     }
+    let host = TestHost { settings, start };
 
-    let resolve = resolver::resolve(
+    let resolve = resolver::resolve_with_host(
         &[(root_summary, opts)],
         &[],
         &mut registry,
         &version_prefs,
         ResolveVersion::with_rust_version(None),
-        gctx,
+        &host,
     );
 
     // The largest test in our suite takes less then 30 secs.

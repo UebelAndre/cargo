@@ -62,7 +62,7 @@ use crate::util::data_structures::{HashMap, HashSet};
 use rustc_hash::FxBuildHasher;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tracing::{debug, trace};
 
 use crate::context::GlobalContext;
@@ -79,6 +79,7 @@ use self::types::{FeaturesSet, RcVecIter, RemainingDeps, ResolverProgress};
 
 pub use self::errors::{ActivateError, ActivateResult, ResolveError};
 pub use self::features::{CliFeatures, ForceAllTargets, HasDevUnits};
+pub use self::host::{GlobalContextHost, ResolverHost};
 pub use self::resolve::{Resolve, ResolveVersion};
 pub use self::types::{ResolveBehavior, ResolveOpts};
 pub use self::version_prefs::PublishAgePolicy;
@@ -92,6 +93,7 @@ mod dep_cache;
 pub(crate) mod encode;
 pub(crate) mod errors;
 pub mod features;
+mod host;
 mod resolve;
 mod types;
 mod version_prefs;
@@ -130,9 +132,32 @@ pub fn resolve(
     resolve_version: ResolveVersion,
     gctx: &GlobalContext,
 ) -> CargoResult<Resolve> {
-    let first_version = gctx
-        .cli_unstable()
-        .direct_minimal_versions
+    let host = GlobalContextHost::new(gctx);
+    resolve_with_host(
+        summaries,
+        replacements,
+        registry,
+        version_prefs,
+        resolve_version,
+        &host,
+    )
+}
+
+/// Like [`resolve`], but with the environment supplied through a
+/// [`ResolverHost`] instead of a [`GlobalContext`].
+///
+/// This is the whole of the resolver's interface to the outside world; see
+/// [`ResolverHost`] for what it asks of its environment.
+pub fn resolve_with_host(
+    summaries: &[(Summary, ResolveOpts)],
+    replacements: &[(PackageIdSpec, Dependency)],
+    registry: &impl Registry,
+    version_prefs: &VersionPreferences,
+    resolve_version: ResolveVersion,
+    host: &dyn ResolverHost,
+) -> CargoResult<Resolve> {
+    let first_version = host
+        .direct_minimal_versions()
         .then_some(VersionOrdering::MinimumVersionsFirst);
     let mut registry = RegistryQueryer::new(registry, replacements, version_prefs);
 
@@ -144,7 +169,7 @@ pub fn resolve(
             &mut registry,
             summaries,
             first_version,
-            gctx,
+            host,
             &mut past_conflicting_activations,
         )?;
         if registry.wait()? {
@@ -196,7 +221,7 @@ fn activate_deps_loop(
     registry: &mut RegistryQueryer<'_, impl Registry>,
     summaries: &[(Summary, ResolveOpts)],
     first_version: Option<VersionOrdering>,
-    gctx: &GlobalContext,
+    host: &dyn ResolverHost,
     past_conflicting_activations: &mut conflict_cache::ConflictCache,
 ) -> CargoResult<ResolverContext> {
     let mut resolver_ctx = ResolverContext::new();
@@ -209,6 +234,7 @@ fn activate_deps_loop(
         let res = activate(
             &mut resolver_ctx,
             registry,
+            host,
             None,
             summary.clone(),
             first_version,
@@ -244,7 +270,7 @@ fn activate_deps_loop(
 
         // If we spend a lot of time here (we shouldn't in most cases) then give
         // a bit of a visual indicator as to what we're doing.
-        printed.shell_status(gctx)?;
+        printed.shell_status(host)?;
 
         trace!(
             "{}[{}]>{} {} candidates",
@@ -355,7 +381,7 @@ fn activate_deps_loop(
                             &dep,
                             &conflicting_activations,
                             &candidates,
-                            gctx,
+                            host,
                         ))
                     }
                 }
@@ -411,6 +437,7 @@ fn activate_deps_loop(
             let res = activate(
                 &mut resolver_ctx,
                 registry,
+                host,
                 Some((&parent, &dep)),
                 candidate,
                 first_version,
@@ -623,6 +650,7 @@ fn activate_deps_loop(
 fn activate(
     cx: &mut ResolverContext,
     registry: &mut RegistryQueryer<'_, impl Registry>,
+    host: &dyn ResolverHost,
     parent: Option<(&Summary, &Dependency)>,
     candidate: Summary,
     first_version: Option<VersionOrdering>,
@@ -667,7 +695,7 @@ fn activate(
         }
     };
 
-    let now = Instant::now();
+    let start = host.elapsed();
     let (used_features, deps) = &*registry.build_deps(
         cx,
         parent.map(|p| p.0.package_id()),
@@ -691,7 +719,7 @@ fn activate(
         just_for_error_messages: false,
         remaining_siblings: RcVecIter::new(Rc::clone(deps)),
     };
-    Ok(Some((frame, now.elapsed())))
+    Ok(Some((frame, host.elapsed().saturating_sub(start))))
 }
 
 #[derive(Clone)]

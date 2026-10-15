@@ -1,5 +1,5 @@
 use super::features::{CliFeatures, RequestedFeatures};
-use crate::util::GlobalContext;
+use super::host::ResolverHost;
 use crate::util::errors::CargoResult;
 use crate::util::interning::InternedString;
 use crate::workspace::{Dependency, PackageId, SourceId, Summary};
@@ -7,11 +7,10 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct ResolverProgress {
     ticks: u16,
-    start: Instant,
     time_to_print: Duration,
     printed: bool,
     deps_time: Duration,
@@ -26,7 +25,6 @@ impl ResolverProgress {
     pub fn new() -> ResolverProgress {
         ResolverProgress {
             ticks: 0,
-            start: Instant::now(),
             time_to_print: Duration::from_millis(500),
             printed: false,
             deps_time: Duration::new(0, 0),
@@ -43,24 +41,23 @@ impl ResolverProgress {
                 .unwrap_or(1),
         }
     }
-    pub fn shell_status(&mut self, gctx: &GlobalContext) -> CargoResult<()> {
+    pub fn shell_status(&mut self, host: &dyn ResolverHost) -> CargoResult<()> {
         // If we spend a lot of time here (we shouldn't in most cases) then give
-        // a bit of a visual indicator as to what we're doing. Only enable this
-        // when stderr is a tty (a human is likely to be watching) to ensure we
-        // get deterministic output otherwise when observed by tools.
+        // a bit of a visual indicator as to what we're doing. The host decides
+        // whether anyone is watching (e.g. only when stderr is a tty) to ensure
+        // deterministic output when observed by tools.
         //
         // Also note that we hit this loop a lot, so it's fairly performance
         // sensitive. As a result try to defer a possibly expensive operation
-        // like `Instant::now` by only checking every N iterations of this loop
-        // to amortize the cost of the current time lookup.
+        // like asking the host for the time by only checking every N
+        // iterations of this loop to amortize the cost of the lookup.
         self.ticks += 1;
-        if gctx.shell().is_err_tty()
-            && !self.printed
+        if !self.printed
             && self.ticks % 1000 == 0
-            && self.start.elapsed() - self.deps_time > self.time_to_print
+            && host.elapsed().saturating_sub(self.deps_time) > self.time_to_print
         {
             self.printed = true;
-            gctx.shell().status("Resolving", "dependency graph...")?;
+            host.report_slow_resolution()?;
         }
         #[cfg(debug_assertions)]
         {
@@ -71,7 +68,7 @@ impl ResolverProgress {
             assert!(
                 self.ticks < 50_000,
                 "got to 50_000 ticks in {:?}",
-                self.start.elapsed()
+                host.elapsed()
             );
             // The largest test in our suite takes less then 30 sec
             // with all the improvements to how fast a tick can go.
@@ -79,7 +76,7 @@ impl ResolverProgress {
             // So lets fail the test fast if we have been running for too long.
             if self.ticks % 1000 == 0 {
                 assert!(
-                    self.start.elapsed() - self.deps_time
+                    host.elapsed().saturating_sub(self.deps_time)
                         < Duration::from_secs(self.slow_cpu_multiplier * 90)
                 );
             }

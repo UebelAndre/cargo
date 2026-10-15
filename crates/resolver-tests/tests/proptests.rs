@@ -1,12 +1,11 @@
 use std::io::IsTerminal;
 
-use cargo::util::GlobalContext;
 use cargo_util::is_ci;
 
 use resolver_tests::{
-    PrettyPrintRegistry,
+    PrettyPrintRegistry, ResolveSettings,
     helpers::{dep_req, registry, remove_dep},
-    registry_strategy, resolve, resolve_and_validated, resolve_with_global_context,
+    registry_strategy, resolve, resolve_and_validated, resolve_with_settings,
     sat::SatResolver,
 };
 
@@ -57,21 +56,6 @@ proptest! {
     fn prop_minimum_version_errors_the_same(
             PrettyPrintRegistry(input) in registry_strategy(50, 20, 60)
     ) {
-        let mut gctx = GlobalContext::default().unwrap();
-        gctx.nightly_features_allowed = true;
-        gctx
-            .configure(
-                1,
-                false,
-                None,
-                false,
-                false,
-                false,
-                &None,
-                &["minimal-versions".to_string()],
-                &[],
-            )
-            .unwrap();
 
         let reg = registry(input.clone());
 
@@ -80,7 +64,14 @@ proptest! {
         for this in input.iter().rev().take(10) {
             let deps = vec![dep_req(&this.name(), &format!("={}", this.version()))];
             let res = resolve(deps.clone(), &reg);
-            let mres = resolve_with_global_context(deps, &reg, &gctx);
+            let mres = resolve_with_settings(
+                deps,
+                &reg,
+                ResolveSettings {
+                    minimal_versions: true,
+                    ..Default::default()
+                },
+            );
 
             // `minimal-versions` changes what order the candidates are tried but not the existence of a solution.
             prop_assert_eq!(
@@ -98,21 +89,6 @@ proptest! {
     fn prop_direct_minimum_version_error_implications(
             PrettyPrintRegistry(input) in registry_strategy(50, 20, 60)
     ) {
-        let mut gctx = GlobalContext::default().unwrap();
-        gctx.nightly_features_allowed = true;
-        gctx
-            .configure(
-                1,
-                false,
-                None,
-                false,
-                false,
-                false,
-                &None,
-                &["direct-minimal-versions".to_string()],
-                &[],
-            )
-            .unwrap();
 
         let reg = registry(input.clone());
 
@@ -121,7 +97,14 @@ proptest! {
         for this in input.iter().rev().take(10) {
             let deps = vec![dep_req(&this.name(), &format!("={}", this.version()))];
             let res = resolve(deps.clone(), &reg);
-            let mres = resolve_with_global_context(deps, &reg, &gctx);
+            let mres = resolve_with_settings(
+                deps,
+                &reg,
+                ResolveSettings {
+                    direct_minimal_versions: true,
+                    ..Default::default()
+                },
+            );
 
             // `direct-minimal-versions` reduces the number of available solutions,
             //  so we verify that we do not come up with solutions not seen in `maximal-versions`.
