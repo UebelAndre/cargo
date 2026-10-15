@@ -87,6 +87,7 @@ pub use self::version_prefs::PublishAgeViolation;
 pub use self::version_prefs::VersionOrdering;
 pub use self::version_prefs::VersionPreferences;
 
+mod cli_features;
 mod conflict_cache;
 mod context;
 mod dep_cache;
