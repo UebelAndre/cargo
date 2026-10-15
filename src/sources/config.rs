@@ -5,6 +5,7 @@
 //! sources to one another via the `replace-with` key in `.cargo/config`.
 
 use crate::util::data_structures::HashMap;
+use crate::workspace::SourceIdExt;
 
 use crate::context::{self, OptValue, SourceConfigDef};
 use crate::sources::overlay::DependencyConfusionThreatOverlaySource;

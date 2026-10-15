@@ -1,6 +1,7 @@
 //! Tests for profiles defined in config files.
 
 use crate::prelude::*;
+use cargo::workspace::SourceIdExt;
 use cargo_test_support::{basic_lib_manifest, paths, project, str};
 use cargo_util_schemas::manifest::TomlDebugInfo;
 

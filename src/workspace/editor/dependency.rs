@@ -1,5 +1,6 @@
 //! Information about dependencies in a manifest.
 
+use crate::workspace::SourceIdExt;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};

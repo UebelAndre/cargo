@@ -1,4 +1,5 @@
 use crate::util::data_structures::{HashMap, HashSet, IndexSet};
+use crate::workspace::SourceIdExt;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};

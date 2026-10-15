@@ -8,6 +8,7 @@ pub use self::package_id_spec::PackageIdSpecQuery;
 pub use self::patch::{Patch, PatchLocation};
 pub use self::registry::Registry;
 pub use self::source_id::SourceId;
+pub use self::source_id_ext::SourceIdExt;
 pub use self::summary::{FeatureMap, FeatureValue, Summary};
 pub use self::workspace::{
     MaybePackage, Workspace, WorkspaceConfig, WorkspaceRootConfig, find_workspace_root,
@@ -29,5 +30,6 @@ mod patch;
 pub mod profiles;
 pub mod registry;
 mod source_id;
+mod source_id_ext;
 pub mod summary;
 mod workspace;

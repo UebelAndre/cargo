@@ -11,6 +11,7 @@ mod cargo_search;
 mod cargo_yank;
 
 use crate::util::data_structures::HashSet;
+use crate::workspace::SourceIdExt;
 use std::str;
 
 use anyhow::{Context as _, bail, format_err};

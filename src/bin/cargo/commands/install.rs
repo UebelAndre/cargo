@@ -1,4 +1,5 @@
 use crate::command_prelude::*;
+use cargo::workspace::SourceIdExt;
 
 use anyhow::anyhow;
 use anyhow::bail;

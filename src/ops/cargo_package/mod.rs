@@ -1,4 +1,5 @@
 use crate::util::data_structures::HashMap;
+use crate::workspace::SourceIdExt;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fs::File;
