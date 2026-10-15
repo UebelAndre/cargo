@@ -55,6 +55,7 @@
 //! [source implementations]: crate::sources
 //! [`Downloads`]: crate::workspace::package::Downloads
 
+use crate::compiler::ArtifactTargetExt;
 use crate::compiler::{CompileKind, RustcTargetData};
 use crate::context::FeatureUnification;
 use crate::ops;

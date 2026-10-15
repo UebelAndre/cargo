@@ -21,6 +21,7 @@
 //! The precedence is explained in [`ProfileMaker`].
 //! The algorithm happens within [`ProfileMaker::get_profile`].
 
+use crate::compiler::ArtifactTargetExt;
 use crate::compiler::{CompileKind, CompileTarget, Unit};
 use crate::context;
 use crate::resolver::Resolve;

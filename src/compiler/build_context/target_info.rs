@@ -7,6 +7,7 @@
 //! * [`RustcTargetData::info`] to get a [`TargetInfo`] for an in-depth query.
 //! * [`TargetInfo::rustc_outputs`] to get a list of supported file types.
 
+use crate::compiler::ArtifactTargetExt;
 use crate::compiler::CompileKind;
 use crate::compiler::CompileMode;
 use crate::compiler::CompileTarget;

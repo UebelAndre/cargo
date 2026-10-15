@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::trace;
 
-use crate::compiler::{CompileKind, CompileTarget};
+use crate::compiler::CompileTarget;
 use crate::context::Definition;
 use crate::util::OptVersionReq;
 use crate::util::VersionReqMatchMode;
@@ -551,34 +551,10 @@ impl ArtifactTarget {
         }
     }
 
-    pub fn to_compile_kind(&self) -> Option<CompileKind> {
-        self.to_compile_target().map(CompileKind::Target)
-    }
-
     pub fn to_compile_target(&self) -> Option<CompileTarget> {
         match self {
             ArtifactTarget::BuildDependencyAssumeTarget => None,
             ArtifactTarget::Force(target) => Some(*target),
-        }
-    }
-
-    pub(crate) fn to_resolved_compile_kind(
-        &self,
-        root_unit_compile_kind: CompileKind,
-    ) -> CompileKind {
-        match self {
-            ArtifactTarget::Force(target) => CompileKind::Target(*target),
-            ArtifactTarget::BuildDependencyAssumeTarget => root_unit_compile_kind,
-        }
-    }
-
-    pub(crate) fn to_resolved_compile_target(
-        &self,
-        root_unit_compile_kind: CompileKind,
-    ) -> Option<CompileTarget> {
-        match self.to_resolved_compile_kind(root_unit_compile_kind) {
-            CompileKind::Host => None,
-            CompileKind::Target(target) => Some(target),
         }
     }
 }

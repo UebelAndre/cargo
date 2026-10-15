@@ -82,7 +82,7 @@ pub use self::build_context::RustcTargetData;
 pub use self::build_context::TargetInfo;
 pub use self::build_runner::{BuildRunner, Metadata, UnitHash};
 pub use self::compilation::{Compilation, Doctest, UnitOutput};
-pub use self::compile_kind::{CompileKind, CompileKindFallback, CompileTarget};
+pub use self::compile_kind::{ArtifactTargetExt, CompileKind, CompileKindFallback, CompileTarget};
 pub use self::crate_type::CrateType;
 pub use self::custom_build::LinkArgTarget;
 pub use self::custom_build::{BuildOutput, BuildScriptOutputs, BuildScripts, LibraryPath};

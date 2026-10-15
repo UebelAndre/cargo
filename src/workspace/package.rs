@@ -1,3 +1,4 @@
+use crate::compiler::ArtifactTargetExt;
 use std::cell::OnceCell;
 use std::cell::{Cell, Ref, RefCell};
 use std::cmp::Ordering;

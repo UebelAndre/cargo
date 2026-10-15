@@ -4,6 +4,7 @@ use crate::util::errors::CargoResult;
 use crate::util::interning::InternedString;
 use crate::util::{GlobalContext, StableHasher, try_canonicalize};
 use crate::workspace::Target;
+use crate::workspace::dependency::ArtifactTarget;
 use anyhow::Context as _;
 use anyhow::bail;
 use cargo_util::ProcessBuilder;
@@ -261,5 +262,49 @@ impl CompileTarget {
             }
         }
         Hasher::finish(&hasher)
+    }
+}
+
+/// Resolution of an [`ArtifactTarget`] to the [`CompileKind`] it should be
+/// built for.
+///
+/// This lives with the compiler rather than on `ArtifactTarget` itself because
+/// the answer depends on compiler concepts (the root unit's compile kind) that
+/// the dependency model is otherwise unaware of.
+pub trait ArtifactTargetExt {
+    /// The compile kind this target forces, if any.
+    fn to_compile_kind(&self) -> Option<CompileKind>;
+
+    /// The compile kind to build for, given the compile kind of the root unit.
+    fn to_resolved_compile_kind(&self, root_unit_compile_kind: CompileKind) -> CompileKind;
+
+    /// Like [`ArtifactTargetExt::to_resolved_compile_kind`], but `None` when the
+    /// result is the host.
+    fn to_resolved_compile_target(
+        &self,
+        root_unit_compile_kind: CompileKind,
+    ) -> Option<CompileTarget>;
+}
+
+impl ArtifactTargetExt for ArtifactTarget {
+    fn to_compile_kind(&self) -> Option<CompileKind> {
+        self.to_compile_target().map(CompileKind::Target)
+    }
+
+    fn to_resolved_compile_kind(&self, root_unit_compile_kind: CompileKind) -> CompileKind {
+        match self {
+            ArtifactTarget::Force(target) => CompileKind::Target(*target),
+            ArtifactTarget::BuildDependencyAssumeTarget => root_unit_compile_kind,
+        }
+    }
+
+    fn to_resolved_compile_target(
+        &self,
+        root_unit_compile_kind: CompileKind,
+    ) -> Option<CompileTarget> {
+        match self.to_resolved_compile_kind(root_unit_compile_kind) {
+            CompileKind::Host => None,
+            CompileKind::Target(target) => Some(target),
+        }
     }
 }
