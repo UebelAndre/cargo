@@ -54,7 +54,7 @@ pub mod into_url;
 mod into_url_with_base;
 mod io;
 pub mod job;
-mod local_poll_adapter;
+pub(crate) mod local_poll_adapter;
 pub use local_poll_adapter::LocalPollAdapter;
 pub mod data_structures;
 mod lockserver;

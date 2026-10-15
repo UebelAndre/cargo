@@ -91,7 +91,7 @@ where
     /// Run all pending futures. Returns true if there was no work to do.
     pub fn wait(&mut self) -> bool {
         let is_empty = self.pool.is_empty();
-        for (k, v) in crate::util::block_on_stream(&mut self.pool) {
+        for (k, v) in futures::executor::block_on_stream(&mut self.pool) {
             *self
                 .cache
                 .get_mut(&k)
@@ -197,5 +197,20 @@ mod tests {
         // Success is cached.
         assert_eq!(p.widen(&50), Poll::Ready(Ok(50)));
         assert!(p.wait());
+    }
+}
+
+/// Unwraps a [`Poll`] that is expected to be ready.
+pub(crate) trait PollExt<T> {
+    fn expect(self, msg: &str) -> T;
+}
+
+impl<T> PollExt<T> for Poll<T> {
+    #[track_caller]
+    fn expect(self, msg: &str) -> T {
+        match self {
+            Poll::Ready(val) => val,
+            Poll::Pending => panic!("{}", msg),
+        }
     }
 }

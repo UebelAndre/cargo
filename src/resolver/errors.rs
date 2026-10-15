@@ -518,10 +518,11 @@ fn alt_versions(registry: &impl Registry, dep: &Dependency) -> Option<CargoResul
     let mut wild_dep = dep.clone();
     wild_dep.set_version_req(OptVersionReq::Any);
 
-    let candidates = match crate::util::block_on(registry.query_vec(&wild_dep, QueryKind::Exact)) {
-        Ok(candidates) => candidates,
-        Err(e) => return Some(Err(e)),
-    };
+    let candidates =
+        match futures::executor::block_on(registry.query_vec(&wild_dep, QueryKind::Exact)) {
+            Ok(candidates) => candidates,
+            Err(e) => return Some(Err(e)),
+        };
     let mut candidates: Vec<_> = candidates
         .into_iter()
         .filter_map(|s| match s {
@@ -543,7 +544,7 @@ fn rejected_versions(
     dep: &Dependency,
 ) -> Option<CargoResult<Vec<IndexSummary>>> {
     let mut version_candidates =
-        match crate::util::block_on(registry.query_vec(&dep, QueryKind::RejectedVersions)) {
+        match futures::executor::block_on(registry.query_vec(&dep, QueryKind::RejectedVersions)) {
             Ok(candidates) => candidates,
             Err(e) => return Some(Err(e)),
         };
@@ -564,11 +565,12 @@ fn alt_names(
     let mut wild_dep = dep.clone();
     wild_dep.set_version_req(OptVersionReq::Any);
 
-    let name_candidates =
-        match crate::util::block_on(registry.query_vec(&wild_dep, QueryKind::AlternativeNames)) {
-            Ok(candidates) => candidates,
-            Err(e) => return Some(Err(e)),
-        };
+    let name_candidates = match futures::executor::block_on(
+        registry.query_vec(&wild_dep, QueryKind::AlternativeNames),
+    ) {
+        Ok(candidates) => candidates,
+        Err(e) => return Some(Err(e)),
+    };
     let mut name_candidates: Vec<_> = name_candidates
         .into_iter()
         .map(|s| match s {

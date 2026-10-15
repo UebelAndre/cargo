@@ -67,7 +67,7 @@ use tracing::{debug, trace};
 
 use crate::context::GlobalContext;
 use crate::util::errors::CargoResult;
-use crate::util::network::PollExt;
+use crate::util::local_poll_adapter::PollExt;
 use crate::workspace::PackageIdSpec;
 use crate::workspace::{Dependency, PackageId, Registry, Summary};
 

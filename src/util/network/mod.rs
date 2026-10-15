@@ -5,7 +5,6 @@ use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 use std::net::SocketAddrV4;
 use std::net::SocketAddrV6;
-use std::task::Poll;
 
 pub mod http;
 pub mod http_async;
@@ -17,20 +16,6 @@ pub const LOCALHOST: [SocketAddr; 2] = [
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)),
     SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, 0, 0, 0)),
 ];
-
-pub trait PollExt<T> {
-    fn expect(self, msg: &str) -> T;
-}
-
-impl<T> PollExt<T> for Poll<T> {
-    #[track_caller]
-    fn expect(self, msg: &str) -> T {
-        match self {
-            Poll::Ready(val) => val,
-            Poll::Pending => panic!("{}", msg),
-        }
-    }
-}
 
 /// When dynamically linked against libcurl, we want to ignore some failures
 /// when using old versions that don't support certain features.
