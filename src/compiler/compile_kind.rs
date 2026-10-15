@@ -1,18 +1,15 @@
 //! Type definitions for cross-compilation.
 
 use crate::util::errors::CargoResult;
-use crate::util::interning::InternedString;
-use crate::util::{GlobalContext, StableHasher, try_canonicalize};
+use crate::util::{GlobalContext, StableHasher};
 use crate::workspace::Target;
 use crate::workspace::dependency::ArtifactTarget;
-use anyhow::Context as _;
-use anyhow::bail;
+
+pub use super::compile_target::CompileTarget;
 use cargo_util::ProcessBuilder;
-use serde::Serialize;
 use std::collections::BTreeSet;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 
 /// Indicator for how a unit is being compiled.
 ///
@@ -137,7 +134,7 @@ impl CompileKind {
     pub fn fingerprint_hash(&self) -> u64 {
         match self {
             CompileKind::Host => 0,
-            CompileKind::Target(target) => target.fingerprint_hash(),
+            CompileKind::Target(target) => compile_target_fingerprint_hash(target),
         }
     }
 
@@ -162,106 +159,6 @@ impl serde::ser::Serialize for CompileKind {
             CompileKind::Host => None::<&str>.serialize(s),
             CompileKind::Target(t) => Some(t.rustc_target()).serialize(s),
         }
-    }
-}
-
-/// Abstraction for the representation of a compilation target that Cargo has.
-///
-/// Compilation targets are one of two things right now:
-///
-/// 1. A raw target string, like `x86_64-unknown-linux-gnu`.
-/// 2. The path to a JSON file, such as `/path/to/my-target.json`.
-///
-/// Raw target strings are typically dictated by `rustc` itself and represent
-/// built-in targets. Custom JSON files are somewhat unstable, but supported
-/// here in Cargo. Note that for JSON target files this `CompileTarget` stores a
-/// full canonicalized path to the target.
-///
-/// The main reason for this existence is to handle JSON target files where when
-/// we call rustc we pass full paths but when we use it for Cargo's purposes
-/// like naming directories or looking up configuration keys we only check the
-/// file stem of JSON target files. For built-in rustc targets this is just an
-/// uninterpreted string basically.
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, PartialOrd, Ord, Serialize)]
-pub enum CompileTarget {
-    Tuple(InternedString),
-    Json {
-        short: InternedString,
-        path: InternedString,
-    },
-}
-
-impl CompileTarget {
-    pub fn new(name: &str, unstable_json: bool) -> CargoResult<CompileTarget> {
-        let name = name.trim();
-        if name.is_empty() {
-            bail!("target was empty");
-        }
-        if !name.ends_with(".json") {
-            return Ok(CompileTarget::Tuple(name.into()));
-        }
-
-        if !unstable_json {
-            bail!(
-                "`.json` target specs require -Zjson-target-spec to be added to the cargo invocation"
-            );
-        }
-
-        // If `name` ends in `.json` then it's likely a custom target
-        // specification. Canonicalize the path to ensure that different builds
-        // with different paths always produce the same result.
-        let p = try_canonicalize(Path::new(name))
-            .with_context(|| format!("target path `{name}` is not a valid file"))?;
-        let path = p
-            .to_str()
-            .ok_or_else(|| anyhow::format_err!("target path `{name}` is not valid unicode"))?
-            .into();
-        let short = p.file_stem().unwrap().to_str().unwrap().into();
-        Ok(CompileTarget::Json { short, path })
-    }
-
-    /// Returns the full unqualified name of this target, suitable for passing
-    /// to `rustc` directly.
-    ///
-    /// Typically this is pretty much the same as `short_name`, but for the case
-    /// of JSON target files this will be a full canonicalized path name for the
-    /// current filesystem.
-    pub fn rustc_target(&self) -> InternedString {
-        match self {
-            CompileTarget::Tuple(name) => *name,
-            CompileTarget::Json { path, .. } => *path,
-        }
-    }
-
-    /// Returns a "short" version of the target name suitable for usage within
-    /// Cargo for configuration and such.
-    ///
-    /// This is typically the same as `rustc_target`, or the full name, but for
-    /// JSON target files this returns just the file stem (e.g. `foo` out of
-    /// `foo.json`) instead of the full path.
-    pub fn short_name(&self) -> &str {
-        match self {
-            CompileTarget::Tuple(name) => name,
-            CompileTarget::Json { short, .. } => short,
-        }
-    }
-
-    /// See [`CompileKind::fingerprint_hash`].
-    pub fn fingerprint_hash(&self) -> u64 {
-        let mut hasher = StableHasher::new();
-        match self {
-            CompileTarget::Tuple(name) => name.hash(&mut hasher),
-            CompileTarget::Json { path, .. } => {
-                // This may have some performance concerns, since it is called
-                // fairly often. If that ever seems worth fixing, consider
-                // embedding this in `CompileTarget`.
-                match fs::read_to_string(path) {
-                    Ok(contents) => contents.hash(&mut hasher),
-                    Err(_) => path.hash(&mut hasher),
-                }
-            }
-        }
-        Hasher::finish(&hasher)
     }
 }
 
@@ -307,4 +204,22 @@ impl ArtifactTargetExt for ArtifactTarget {
             CompileKind::Target(target) => Some(target),
         }
     }
+}
+
+/// Hash of a [`CompileTarget`] for fingerprinting; for JSON targets this
+/// covers the file's contents, so edits to the spec invalidate builds.
+fn compile_target_fingerprint_hash(target: &CompileTarget) -> u64 {
+    let mut hasher = StableHasher::new();
+    match target {
+        CompileTarget::Tuple(name) => name.hash(&mut hasher),
+        CompileTarget::Json { path, .. } => {
+            // Hash the contents of the json file so that if it changes, the
+            // fingerprint changes too.
+            match fs::read_to_string(path) {
+                Ok(contents) => contents.hash(&mut hasher),
+                Err(_) => path.hash(&mut hasher),
+            }
+        }
+    }
+    Hasher::finish(&hasher)
 }
