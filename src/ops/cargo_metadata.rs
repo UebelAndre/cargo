@@ -6,7 +6,7 @@ use crate::util::CargoResult;
 use crate::util::interning::InternedString;
 use crate::workspace::dependency::DepKind;
 use crate::workspace::package::SerializedPackage;
-use crate::workspace::{Package, PackageId, PackageIdSpec, Workspace};
+use crate::workspace::{Package, PackageId, PackageIdSpec, Target, Workspace};
 use cargo_platform::Platform;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -247,9 +247,9 @@ fn build_resolve_graph_r(
             let targets = package_map[&dep_id].targets();
 
             // Try to get the extern name for lib, or crate name for bins.
-            let extern_name = |target| {
+            let extern_name = |target: &Target| {
                 resolve
-                    .extern_crate_name_and_dep_name(pkg_id, dep_id, target)
+                    .extern_crate_name_and_dep_name(pkg_id, dep_id, &target.crate_name())
                     .map(|(ext_crate_name, _)| ext_crate_name)
             };
 

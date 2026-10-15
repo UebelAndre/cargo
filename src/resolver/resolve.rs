@@ -6,7 +6,7 @@ use crate::util::data_structures::{HashMap, HashSet};
 use crate::util::errors::CargoResult;
 use crate::util::interning::InternedString;
 use crate::workspace::dependency::DepKind;
-use crate::workspace::{Dependency, PackageId, PackageIdSpec, PackageIdSpecQuery, Summary, Target};
+use crate::workspace::{Dependency, PackageId, PackageIdSpec, PackageIdSpecQuery, Summary};
 use cargo_util_schemas::lockfile::TomlLockfileMetadata;
 use std::borrow::Borrow;
 use std::fmt;
@@ -406,11 +406,16 @@ unable to verify that `{0}` is the same as when the lockfile was generated
         &self.metadata
     }
 
+    /// Returns the name `from` refers to `to` by in `extern crate` terms, along
+    /// with the dependency name if it was renamed in the manifest.
+    ///
+    /// `to_crate_name` is the crate name of the target being depended on (see
+    /// `Target::crate_name`); it is used when no dependency renames `to`.
     pub fn extern_crate_name_and_dep_name(
         &self,
         from: PackageId,
         to: PackageId,
-        to_target: &Target,
+        to_crate_name: &str,
     ) -> CargoResult<(InternedString, Option<InternedString>)> {
         let empty_set: HashSet<Dependency> = HashSet::default();
         let deps = if from == to {
@@ -419,7 +424,7 @@ unable to verify that `{0}` is the same as when the lockfile was generated
             self.dependencies_listed(from, to)
         };
 
-        let target_crate_name = || (to_target.crate_name(), None);
+        let target_crate_name = || (to_crate_name.to_owned(), None);
         let mut name_pairs = deps.iter().map(|d| {
             d.explicit_name_in_toml()
                 .map(|s| (s.as_str().replace("-", "_"), Some(s)))

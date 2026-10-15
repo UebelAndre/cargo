@@ -920,7 +920,7 @@ fn new_unit_dep_with_profile(
     let (extern_crate_name, dep_name) = state.resolve().extern_crate_name_and_dep_name(
         parent.pkg.package_id(),
         pkg.package_id(),
-        target,
+        &target.crate_name(),
     )?;
     let public = state
         .resolve()
