@@ -42,6 +42,7 @@ mod dependency_queue;
 pub mod diagnostic_server;
 pub mod edit_distance;
 pub mod errors;
+pub(crate) mod file_url;
 pub mod flock;
 pub mod frontmatter;
 pub mod graph;

@@ -418,6 +418,7 @@ dependencies = [
  "openssl-src",
  "os_info",
  "pathdiff",
+ "percent-encoding",
  "portable-atomic",
  "rand 0.10.1",
  "regex",

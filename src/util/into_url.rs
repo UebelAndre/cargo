@@ -29,7 +29,7 @@ impl<'a> IntoUrl for &'a str {
 
 impl<'a> IntoUrl for &'a Path {
     fn into_url(self) -> CargoResult<Url> {
-        Url::from_file_path(self)
+        crate::util::file_url::from_file_path(self)
             .map_err(|()| anyhow::format_err!("invalid path url `{}`", self.display()))
     }
 }

@@ -359,7 +359,7 @@ impl SourceId {
             return None;
         }
 
-        Some(self.inner.url.to_file_path().unwrap())
+        Some(crate::util::file_url::to_file_path(&self.inner.url).unwrap())
     }
 
     pub fn kind(&self) -> &SourceKind {
@@ -561,10 +561,7 @@ impl SourceId {
     /// same hash in different locations, helping reproducible builds.
     pub fn stable_hash<S: hash::Hasher>(self, workspace: &Path, into: &mut S) {
         if self.is_path() {
-            if let Ok(p) = self
-                .inner
-                .url
-                .to_file_path()
+            if let Ok(p) = crate::util::file_url::to_file_path(&self.inner.url)
                 .unwrap()
                 .strip_prefix(workspace)
             {
@@ -643,7 +640,7 @@ impl<'de> de::Deserialize<'de> for SourceId {
 
 fn url_display(url: &Url) -> String {
     if url.scheme() == "file" {
-        if let Ok(path) = url.to_file_path() {
+        if let Ok(path) = crate::util::file_url::to_file_path(url) {
             if let Some(path_str) = path.to_str() {
                 return path_str.to_string();
             }

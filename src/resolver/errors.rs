@@ -379,7 +379,7 @@ pub(super) fn activation_error(
             );
         }
     } else if let Some(packages) = alt_paths(dep, host) {
-        let path = dep.source_id().url().to_file_path().unwrap();
+        let path = crate::util::file_url::to_file_path(dep.source_id().url()).unwrap();
         let _ = writeln!(
             &mut msg,
             "no matching package named `{}` found",
@@ -601,7 +601,7 @@ fn alt_paths(dep: &Dependency, host: &dyn ResolverHost) -> Option<Vec<(InternedS
     if !dep.source_id().is_path() {
         return None;
     }
-    let path = dep.source_id().url().to_file_path().ok()?;
+    let path = crate::util::file_url::to_file_path(dep.source_id().url()).ok()?;
     let packages = host.packages_at_path(&path);
     if packages.is_empty() {
         None

@@ -261,6 +261,11 @@ features = [
   "Win32_System_Threading",
 ]
 
+# `url` only converts between paths and `file://` URLs on targets it knows
+# the path syntax of; elsewhere `util::file_url` provides a minimal fallback.
+[target.'cfg(not(any(unix, windows, target_os = "redox", target_os = "wasi", target_os = "hermit")))'.dependencies]
+percent-encoding.workspace = true
+
 [dev-dependencies]
 annotate-snippets = { workspace = true, features = ["testing-colors"] }
 cargo-test-support.workspace = true
