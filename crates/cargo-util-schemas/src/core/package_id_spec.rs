@@ -83,17 +83,6 @@ impl PackageIdSpec {
             if let Ok(url) = Url::parse(spec) {
                 return PackageIdSpec::from_url(url);
             }
-        } else if spec.contains('/') || spec.contains('\\') {
-            let abs = std::env::current_dir().unwrap_or_default().join(spec);
-            if abs.exists() {
-                let maybe_url = Url::from_file_path(abs)
-                    .map_or_else(|_| "a file:// URL".to_string(), |url| url.to_string());
-                return Err(ErrorKind::MaybeFilePath {
-                    spec: spec.into(),
-                    maybe_url,
-                }
-                .into());
-            }
         }
         let (name, version) = match parse_spec(spec)? {
             Some((name, ver)) => (name, Some(ver)),
@@ -389,9 +378,6 @@ enum ErrorKind {
 
     #[error("pkgid urls must have at least one path component: {0}")]
     MissingUrlPath(Url),
-
-    #[error("package ID specification `{spec}` looks like a file path, maybe try {maybe_url}")]
-    MaybeFilePath { spec: String, maybe_url: String },
 
     #[error("pkgid url cannot have an empty fragment")]
     EmptyFragment,

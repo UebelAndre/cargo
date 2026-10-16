@@ -1,6 +1,7 @@
 use crate::util::data_structures::HashMap;
 
 use anyhow::{Context as _, bail};
+use url::Url;
 
 use crate::util::edit_distance;
 use crate::util::errors::CargoResult;
@@ -23,17 +24,39 @@ pub trait PackageIdSpecQuery {
         I: IntoIterator<Item = PackageId>;
 }
 
+/// Checks whether a spec that failed to parse is really a path to an existing
+/// file, and if so suggests the `file://` URL that would be accepted instead.
+///
+/// This lives here rather than in `PackageIdSpec::parse` because the parser is
+/// in `cargo-util-schemas`, which must stay free of filesystem access.
+fn file_path_hint(spec: &str) -> Option<anyhow::Error> {
+    if spec.contains("://") || !(spec.contains('/') || spec.contains('\\')) {
+        return None;
+    }
+    let abs = std::env::current_dir().ok()?.join(spec);
+    if !abs.exists() {
+        return None;
+    }
+    let maybe_url = Url::from_file_path(&abs)
+        .map_or_else(|_| "a file:// URL".to_string(), |url| url.to_string());
+    Some(anyhow::format_err!(
+        "package ID specification `{spec}` looks like a file path, maybe try {maybe_url}"
+    ))
+}
+
 impl PackageIdSpecQuery for PackageIdSpec {
     fn query_str<I>(spec: &str, i: I) -> CargoResult<PackageId>
     where
         I: IntoIterator<Item = PackageId>,
     {
         let i: Vec<_> = i.into_iter().collect();
-        let spec = PackageIdSpec::parse(spec).with_context(|| {
-            let suggestion =
-                edit_distance::closest_msg(spec, i.iter(), |id| id.name().as_str(), "package");
-            format!("invalid package ID specification: `{}`{}", spec, suggestion)
-        })?;
+        let spec = PackageIdSpec::parse(spec)
+            .map_err(|e| file_path_hint(spec).unwrap_or_else(|| e.into()))
+            .with_context(|| {
+                let suggestion =
+                    edit_distance::closest_msg(spec, i.iter(), |id| id.name().as_str(), "package");
+                format!("invalid package ID specification: `{}`{}", spec, suggestion)
+            })?;
         spec.query(i)
     }
 
